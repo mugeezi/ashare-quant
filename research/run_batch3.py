@@ -26,6 +26,12 @@ SPECS = {
     ("H23", "base"): dict(H=10, use_events=True, hold=10, keep=ml.EVENT_ONLY_KEEP),
     ("H24", "base"): dict(H=10, use_events=True, hold=10, regime=True),
     ("H25", "base"): dict(H=10, use_events=True, hold=10, plus=True, seeds=(7, 11, 13, 17, 19)),
+    ("H26", "base"): dict(H=10, use_events=True, hold=10, model="ridge", rank_inputs=True),
+    ("H27", "base"): dict(H=20, use_events=True, hold=10),
+    ("H28", "base"): dict(H=10, use_events=True, hold=10, model="rank"),
+    ("H30", "base"): dict(H=10, use_events=True, hold=10, rank_inputs=True),
+    ("H27", "s11"): dict(H=20, use_events=True, hold=10, seeds=(11,)),
+    ("H27", "s13"): dict(H=20, use_events=True, hold=10, seeds=(13,)),
 }
 LEAK_RANGE = None
 
@@ -40,7 +46,7 @@ def main(items):
         sp = SPECS[(hyp, var)]
         ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
         t0 = time.time()
-        extra = {k: sp[k] for k in ("keep", "seeds", "regime") if k in sp}
+        extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs") if k in sp}
         fac = ml.factory(H=sp["H"], use_events=sp["use_events"], last_year=2020, **extra)
         leak_fac = ml.factory(H=sp["H"], use_events=sp["use_events"], max_year=2017, last_year=2017, **extra)
         rr = lab.run(hyp, var, fac, split="train", ext=ext, start="2016-01-01", leak_factory=leak_fac,

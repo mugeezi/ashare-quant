@@ -26,7 +26,26 @@ N_ROUNDS = 300
 WARM = "2013-10-01"
 
 
-def make_panel(md, ext, H, max_year=None, keep=None):
+def _rank_inputs(X, ti):
+    """每个特征在当日截面内转成百分位（0–1），缺失记 0.5。消除不同市场阶段特征水平的漂移。"""
+    out = np.empty_like(X)
+    order = np.argsort(ti, kind="stable")
+    tis = ti[order]
+    bounds = np.flatnonzero(np.diff(tis)) + 1
+    starts = np.r_[0, bounds]
+    ends = np.r_[bounds, len(tis)]
+    for k in range(X.shape[1]):
+        col = X[order, k]
+        res = np.empty(len(col), dtype=np.float32)
+        for a, b in zip(starts, ends):
+            v = col[a:b]
+            r = pd.Series(v).rank(pct=True).values
+            res[a:b] = np.where(np.isnan(r), 0.5, r)
+        out[order, k] = res
+    return out
+
+
+def make_panel(md, ext, H, max_year=None, keep=None, rank_inputs=False):
     el = eligible_matrix(md)
     t0 = int(md.dates.searchsorted(pd.Timestamp(WARM)))
     el[:t0] = False
@@ -44,6 +63,8 @@ def make_panel(md, ext, H, max_year=None, keep=None):
     X = np.column_stack(cols)
     del cols
     gc.collect()
+    if rank_inputs:
+        X = _rank_inputs(X, ti)
     O = hfq(md, "open")
     fwd = np.full(len(ti), np.nan)
     ok = ti + 1 + H < md.T
@@ -55,8 +76,9 @@ def make_panel(md, ext, H, max_year=None, keep=None):
 
 
 def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, stride=2, max_year=None, keep=None,
-                        seeds=(7,)):
-    names, X, y, ti, ji = make_panel(md, ext, H, max_year=max_year, keep=keep)
+                        seeds=(7,), model="lgbm", rank_inputs=False):
+    """model：lgbm（回归）| rank（LightGBM lambdarank，标签按截面分成 5 档，偏重前排）| ridge（线性，需 rank_inputs）。"""
+    names, X, y, ti, ji = make_panel(md, ext, H, max_year=max_year, keep=keep, rank_inputs=rank_inputs or model == "ridge")
     score = np.full((md.T, md.N), np.nan)
     years = md.dates.year.values
     last = min(last_year, max_year or last_year, int(years.max()))
@@ -69,11 +91,27 @@ def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, str
         if tr.sum() < 10000 or not pr.any():
             continue
         pred = np.zeros(int(pr.sum()))
-        for sd in seeds:                                   # 多个随机种子取平均（集成）
-            m = lgb.train(dict(PARAMS, seed=sd), lgb.Dataset(X[tr], y[tr], feature_name=names, free_raw_data=True),
-                          N_ROUNDS)
-            pred += m.predict(X[pr], num_threads=2) / len(seeds)
-            del m
+        if model == "ridge":
+            from sklearn.linear_model import Ridge
+            m = Ridge(alpha=1000.0).fit(X[tr] - 0.5, y[tr])
+            pred = m.predict(X[pr] - 0.5)
+        elif model == "rank":
+            idx = np.where(tr)[0]
+            idx = idx[np.argsort(ti[idx], kind="stable")]
+            grp = np.diff(np.r_[0, np.flatnonzero(np.diff(ti[idx])) + 1, len(idx)])
+            rel = np.clip(np.floor((y[idx] + 0.5) * 5), 0, 4).astype(int)
+            for sd in seeds:
+                m = lgb.train(dict(PARAMS, objective="lambdarank", seed=sd, lambdarank_truncation_level=50,
+                                   label_gain=[0, 1, 3, 7, 15], min_data_in_leaf=2000),
+                              lgb.Dataset(X[idx], rel, group=grp, feature_name=names), N_ROUNDS)
+                pred += m.predict(X[pr], num_threads=2) / len(seeds)
+                del m
+        else:
+            for sd in seeds:                                   # 多个随机种子取平均（集成）
+                m = lgb.train(dict(PARAMS, seed=sd), lgb.Dataset(X[tr], y[tr], feature_name=names, free_raw_data=True),
+                              N_ROUNDS)
+                pred += m.predict(X[pr], num_threads=2) / len(seeds)
+                del m
         score[ti[pr], ji[pr]] = pred
         gc.collect()
     return score
@@ -111,11 +149,12 @@ def unlock_ext(md, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def factory(H=10, use_events=False, max_year=None, last_year=2020, keep=None, seeds=(7,), regime=False):
+def factory(H=10, use_events=False, max_year=None, last_year=2020, keep=None, seeds=(7,), regime=False,
+            model="lgbm", rank_inputs=False):
     """返回 factory(md, ext)。use_events=False 时忽略外部数据（只用行情特征）。
     训练集运行时 last_year=2020：不训练、不预测验证集年份，验证集标签在验证集运行之前完全不碰。"""
     def f(md, ext):
         sc = walk_forward_scores(md, ext if use_events else None, H=H, max_year=max_year, last_year=last_year,
-                                 keep=keep, seeds=seeds)
+                                 keep=keep, seeds=seeds, model=model, rank_inputs=rank_inputs)
         return RegimeStrategy(sc) if regime else SignalStrategy(sc)
     return f

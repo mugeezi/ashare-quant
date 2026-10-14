@@ -16,7 +16,7 @@ VARS = {"hold8": dict(hold_days=8), "hold12": dict(hold_days=12), "k24": dict(re
 def main(hyp, base_var):
     sp = SPECS[(hyp, base_var)]
     H, use_events = sp["H"], sp["use_events"]
-    extra = {k: sp[k] for k in ("keep", "seeds", "regime") if k in sp}
+    extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs") if k in sp}
     lab = Lab()
     md = lab.md
     fac = ml.factory(H=H, use_events=use_events, last_year=2020, **extra)

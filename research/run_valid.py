@@ -14,7 +14,7 @@ def main(hyp, var):
     lab = Lab()
     md = lab.md
     ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
-    extra = {k: sp[k] for k in ("keep", "seeds", "regime") if k in sp}
+    extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs") if k in sp}
     fac = ml.factory(H=sp["H"], use_events=sp["use_events"], last_year=2023, **extra)
     leak_fac = ml.factory(H=sp["H"], use_events=sp["use_events"], max_year=2017, last_year=2017, **extra)
     t_lo = int(md.dates.searchsorted(pd.Timestamp("2016-02-01")))
