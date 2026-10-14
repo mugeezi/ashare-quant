@@ -1,0 +1,1 @@
+exp_id,hyp_id,variant,split,run_time,params,hold_days,n_target,cagr,excess_cagr,sharpe_daily,max_drawdown,turnover_annual,n_buys,years_excess_pos,smb_alpha,smb_beta,alpha_share,leak_test,passed,trial_no,valid_use_no,notes

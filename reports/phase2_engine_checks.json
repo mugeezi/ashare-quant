@@ -1,0 +1,37 @@
+{
+ "C1": {
+  "ew": 0.05684262396494777,
+  "gross": 0.029211941377063604,
+  "net": -0.13998779544940748,
+  "se": 0.011090725175165505
+ },
+ "C2": {
+  "cheat_cagr": 1161743.3388095035,
+  "honest_changed": 0,
+  "cheat_changed": 30
+ },
+ "C3": {
+  "A_attempts": 46390,
+  "A_limit": 3370,
+  "A_buys": 2560,
+  "A_cagr": -0.3850538637026353,
+  "B_attempts": 9577,
+  "B_buys": 0
+ },
+ "C4": {
+  "susp_locked": 923,
+  "susp_avg": 18.219934994582882,
+  "delist_exits": {
+   "merger_convert": 8,
+   "writeoff_forced": 17,
+   "writeoff_forced_no_period": 2
+  },
+  "hows": {
+   "delist_period": 814,
+   "writeoff_forced": 17,
+   "merger_convert": 8,
+   "hold_days": 7,
+   "writeoff_forced_no_period": 2
+  }
+ }
+}

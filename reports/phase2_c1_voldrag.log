@@ -1,0 +1,18 @@
+EW: CAGR 0.0568  arith 0.0653  vol 0.1394  cohort mean 5d ret 0.00213  avg n 2258
+{'seed': 0, 'cagr': np.float64(0.017325854556933473), 'arith': np.float64(0.06324063840345842), 'vol': np.float64(0.30213498796279475), 'cash_frac': np.float64(0.03817674849459728), 'rt_mean': np.float64(0.001311144979266195), 'rt_n': 4787, 'rt_mean_normal': np.float64(0.001311144979266195), 'hows': {'hold_days': 4787}}
+{'seed': 1, 'cagr': np.float64(-0.026222615389922876), 'arith': np.float64(0.014569584252957577), 'vol': np.float64(0.28558980424665464), 'cash_frac': np.float64(0.04908790241397861), 'rt_mean': np.float64(0.0007028092038907031), 'rt_n': 4714, 'rt_mean_normal': np.float64(0.0007028092038907031), 'hows': {'hold_days': 4714}}
+{'seed': 2, 'cagr': np.float64(0.03493015927797383), 'arith': np.float64(0.07714439002741173), 'vol': np.float64(0.29124883389337014), 'cash_frac': np.float64(0.03439014102227327), 'rt_mean': np.float64(0.0018900136182376942), 'rt_n': 4641, 'rt_mean_normal': np.float64(0.0018900136182376942), 'hows': {'hold_days': 4641}}
+{'seed': 3, 'cagr': np.float64(-0.011255169670081), 'arith': np.float64(0.03120618305319713), 'vol': np.float64(0.29013149127713816), 'cash_frac': np.float64(0.03938251450858068), 'rt_mean': np.float64(0.0007985379082729334), 'rt_n': 4706, 'rt_mean_normal': np.float64(0.0007831213736448651), 'hows': {'hold_days': 4705, 'merger_convert': 1}}
+{'seed': 4, 'cagr': np.float64(-0.03166381508874294), 'arith': np.float64(0.0026780601679562105), 'vol': np.float64(0.2629119157915551), 'cash_frac': np.float64(0.052124152179739244), 'rt_mean': np.float64(0.00012522222847718273), 'rt_n': 4523, 'rt_mean_normal': np.float64(0.00012522222847718273), 'hows': {'hold_days': 4523}}
+{'seed': 5, 'cagr': np.float64(0.03237796056657993), 'arith': np.float64(0.06734291313012683), 'vol': np.float64(0.2651972202348689), 'cash_frac': np.float64(0.03577103993933817), 'rt_mean': np.float64(0.0017145059500564468), 'rt_n': 4571, 'rt_mean_normal': np.float64(0.0017145059500564468), 'hows': {'hold_days': 4571}}
+{'seed': 6, 'cagr': np.float64(0.010717688396758351), 'arith': np.float64(0.048921488288480204), 'vol': np.float64(0.27566131244386755), 'cash_frac': np.float64(0.04183301843137041), 'rt_mean': np.float64(0.0012978932279314665), 'rt_n': 4587, 'rt_mean_normal': np.float64(0.0012978932279314665), 'hows': {'hold_days': 4587}}
+{'seed': 7, 'cagr': np.float64(0.08576864341573254), 'arith': np.float64(0.12156096182092702), 'vol': np.float64(0.27889339095577526), 'cash_frac': np.float64(0.03406045661983699), 'rt_mean': np.float64(0.0028281463218136757), 'rt_n': 4586, 'rt_mean_normal': np.float64(0.0028281463218136757), 'hows': {'hold_days': 4586}}
+                       mean        std
+seed               3.500000   2.449490
+cagr               0.013997   0.038339
+arith              0.053333   0.037974
+vol                0.281471   0.013439
+cash_frac          0.040603   0.006744
+rt_mean            0.001334   0.000831
+rt_n            4639.375000  89.133828
+rt_mean_normal     0.001332   0.000832

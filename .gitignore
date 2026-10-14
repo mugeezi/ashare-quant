@@ -1,0 +1,22 @@
+# 数据存在 OSS，不进 git
+data/
+*.parquet
+*.pkl
+*.zip
+logs/
+# 缓存
+__pycache__/
+*.pyc
+.cache/
+.ipynb_checkpoints/
+# 任何可能含密钥的文件
+.env
+.env.*
+*.env
+*secret*
+*credential*
+*.key
+*.pem
+.netrc
+.git-credentials
+oss_config*
