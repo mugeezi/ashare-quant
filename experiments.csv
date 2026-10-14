@@ -1,1 +1,10 @@
 exp_id,hyp_id,variant,split,run_time,params,hold_days,n_target,cagr,excess_cagr,sharpe_daily,max_drawdown,turnover_annual,n_buys,years_excess_pos,smb_alpha,smb_beta,alpha_share,leak_test,passed,trial_no,valid_use_no,notes
+E0001,H01,b5,train,2026-10-13 22:00,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.3709,-0.4368,-0.17448,-0.9846,24.3,1866,0/7,-0.5553,0.275,,pass 9,False,1,0,
+E0002,H02,b5,train,2026-10-13 22:00,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.4404,-0.5033,-0.20541,-0.9862,18.9,1370,0/7,-0.6769,0.058,,pass 9,False,2,0,
+E0003,H09,b5,train,2026-10-13 22:00,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.087,-0.1842,-0.05453,-0.6628,19.8,1570,2/7,-0.1829,0.221,,pass 9,False,3,0,
+E0004,H08,b5,train,2026-10-13 22:00,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.3833,-0.4352,-0.16572,-0.9828,27.9,2080,0/7,-0.5551,0.748,,pass 9,False,4,0,
+E0005,H03,b5,train,2026-10-13 22:03,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.3811,-0.4382,-0.18831,-0.9858,35.1,2767,0/7,-0.5611,0.357,,pass 9,False,5,0,
+E0006,H04,b5,train,2026-10-13 22:10,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.2242,-0.2982,-0.10425,-0.9295,26.3,2069,2/7,-0.3348,0.206,,pass 9,False,6,0,
+E0007,H06,b5,train,2026-10-13 22:13,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.2242,-0.3082,-0.11566,-0.8633,26.5,1777,1/7,-0.3499,0.063,,pass 9,False,7,0,
+E0008,H10,b5,train,2026-10-13 22:13,"{""hold_days"": 5, ""n_target"": 10, ""renew"": true}",5,10,-0.1368,-0.2252,-0.11073,-0.8125,30.0,2371,0/7,-0.2466,0.181,,pass 9,False,8,0,
+E0009,H07,b10,train,2026-10-13 22:48,"{""hold_days"": 10, ""n_target"": 10, ""renew"": true}",10,10,0.0292,-0.1012,-0.02749,-0.2533,6.7,472,2/7,-0.0838,-0.271,,pass 9,False,9,0,

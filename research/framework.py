@@ -121,6 +121,8 @@ def _perturb_ext(ext: dict | None, cut_date, rng) -> dict | None:
             for c in df.columns:
                 if c == "avail_date":
                     continue
+                if pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_float_dtype(df[c]):
+                    df[c] = df[c].astype(float)
                 vals = df.loc[m, c].to_numpy()
                 if pd.api.types.is_numeric_dtype(df[c]):
                     vals = vals * rng.uniform(0.5, 1.5, size=n)
