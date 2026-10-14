@@ -151,6 +151,7 @@ class Backtest:
         cash, positions = cfg.init_cash, []
         nav_prev = cfg.init_cash
         cands = np.array([], dtype=int)
+        cur_target = cfg.n_target          # 策略可通过 target_n(t, view) 动态降低持仓数（仓位控制），每只金额不变
         trades, rts, navs = [], [], []
         stat = {"buy_block": {}, "sell_block_days": {}, "insufficient_lot": 0, "buy_attempts": 0, "buys": 0,
                 "exits": {}, "exright_extra_buy": 0,
@@ -225,7 +226,7 @@ class Backtest:
                 close_rt(p, t, proceeds, p.reason)
                 positions.remove(p)
             # 3) 买入
-            slots = cfg.n_target - len(positions)
+            slots = cur_target - len(positions)
             if slots > 0 and len(cands):
                 alloc = nav_prev / cfg.n_target
                 held = {p.c for p in positions}
@@ -293,6 +294,9 @@ class Backtest:
             # 6) 退出决策
             dp = self.md.a["delist_period"]
             topk = set(ranked[: cfg.renew_k].tolist()) if cfg.renew else set()
+            if hasattr(self.s, "target_n"):
+                cur_target = int(min(cfg.n_target, max(0, self.s.target_n(t, View(md, t)))))
+            n_keep = sum(1 for p in positions if not p.pending)
             for p in positions:
                 if p.pending:
                     continue
@@ -300,11 +304,12 @@ class Backtest:
                 if dp[t, p.c] == 1:
                     p.pending, p.reason = True, "delist_period"
                 elif t - start >= cfg.hold_days - 1:      # 开盘买入、第 hold_days 个交易日后开盘卖出
-                    if cfg.renew and p.c in topk and not p.origin:
+                    if cfg.renew and p.c in topk and not p.origin and n_keep <= cur_target:
                         p.hold_start, p.renewals = t + 1, p.renewals + 1
                         stat["renewals"] = stat.get("renewals", 0) + 1
                     else:
                         p.pending, p.reason = True, "hold_days"
+                        n_keep -= 1
                 elif hasattr(self.s, "should_exit") and self.s.should_exit(t, View(md, t), p):
                     p.pending, p.reason = True, "strategy_exit"
             # 7) 次日买入候选

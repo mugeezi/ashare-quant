@@ -271,7 +271,12 @@ class Lab:
         return int(((exp.hyp_id == hyp) & (exp.split == "valid")).sum()) if len(exp) else 0
 
     def run(self, hyp: str, variant: str, factory, split: str = "train", ext: dict | None = None,
-            params: dict | None = None, notes: str = "", reason: str | None = None, **cfg_kw) -> RunResult:
+            params: dict | None = None, notes: str = "", reason: str | None = None, start: str | None = None,
+            leak_factory=None, leak_t_range=None, strategy=None, **cfg_kw) -> RunResult:
+        """start：训练集内可推迟起点（如滚动训练的模型需要预热），只能落在该数据集区间内；
+        正超额年份门槛按年数等比例折算（训练集 4/7）。leak_factory / leak_t_range：前视检测用的轻量版工厂
+        与切点范围（机器学习模型重训很慢时使用，必须与正式工厂是同一套代码）。strategy：已构建好的策略对象，
+        避免重复训练（必须由同一个 factory 构建）。"""
         exp = read_exp()
         if split not in SPLITS:
             raise PermissionError(f"未知或不允许的数据集：{split}")
@@ -283,14 +288,18 @@ class Lab:
                 raise PermissionError(f"{hyp} 已经用过验证集；再次使用必须给出 reason 并在 hypotheses.md 说明")
         key = (hyp, variant)
         if key not in self._leak_cache:
-            self._leak_cache[key] = leak_test(self.md, factory, ext)
+            self._leak_cache[key] = leak_test(self.md, leak_factory or factory, ext, t_range=leak_t_range)
         lk = self._leak_cache[key]
         if not lk["passed"]:
             raise RuntimeError(f"{hyp}/{variant} 前视检测未通过：{lk['changed']}")
-        start, end = SPLITS[split]
-        cfg = Config(start=start, end=end, **cfg_kw)
+        s0, end = SPLITS[split]
+        if start is not None:
+            if not (pd.Timestamp(s0) <= pd.Timestamp(start) <= pd.Timestamp(end)):
+                raise PermissionError("start 必须落在该数据集区间内")
+            s0 = start
+        cfg = Config(start=s0, end=end, **cfg_kw)
         t0 = time.time()
-        strat = factory(self.md, ext)
+        strat = strategy if strategy is not None else factory(self.md, ext)
         res = Backtest(self.md, strat, cfg).run()
         st = excess_stats(res.nav.nav, self.bench, self.smb)
         tr = res.trades
@@ -299,7 +308,8 @@ class Lab:
         n_buys = int((tr.side == "buy").sum()) if len(tr) else 0
         ypos = sum(v > 0 for v in st["yearly_excess"].values())
         if split == "train":
-            passed = (st["excess_cagr"] >= TRAIN_MIN["excess"] and ypos >= TRAIN_MIN["years_pos"]
+            need = math.ceil(TRAIN_MIN["years_pos"] / 7 * len(st["yearly_excess"]) - 1e-9)
+            passed = (st["excess_cagr"] >= TRAIN_MIN["excess"] and ypos >= need
                       and st["max_drawdown"] >= TRAIN_MIN["max_dd"] and (st["alpha_share"] or 0) >= TRAIN_MIN["alpha_share"])
             dsr = sr0 = float("nan")
         else:
@@ -309,7 +319,7 @@ class Lab:
             passed = (st["excess_cagr"] >= VALID_MIN["excess"] and ypos >= VALID_MIN["years_pos"]
                       and st["max_drawdown"] >= VALID_MIN["max_dd"] and (st["alpha_share"] or 0) >= VALID_MIN["alpha_share"]
                       and dsr >= VALID_MIN["dsr"])
-        prm = dict(params or {}, **{k: v for k, v in cfg_kw.items()})
+        prm = dict(params or {}, **{k: v for k, v in cfg_kw.items()}, **({"start": s0} if start else {}))
         note = notes
         if split == "valid":
             note = (note + f"; DSR={dsr:.3f}, SR0={sr0:.4f}, N={len(exp) + 1}").strip("; ")

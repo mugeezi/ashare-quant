@@ -180,6 +180,17 @@ def main():
     check("续持模式：新买入只从前 n_target 名中选（第 1 名涨停买不进时不替补）", (r.trades.side == "buy").sum() == 0
           if len(r.trades) else True)
 
+    # U12 仓位控制：策略的 target_n 降低持仓数，每只金额仍为净值 / n_target
+    class Half(Sched):
+        def target_n(self, t, v):
+            return 2 if t >= 8 else 4
+
+    md = make_md()
+    r = Backtest(md, Half(lambda t: [0, 1, 2, 3]), cfg(md, n_target=4, hold_days=3, renew=True)).run()
+    npos = r.nav.n_pos.values
+    check("仓位控制：target_n 从 4 降到 2 后持仓数随之下降", npos[3] == 4 and npos[-1] == 2,
+          f"第 3 日 {npos[3]} 只，最后一日 {npos[-1]} 只")
+
     n_bad = sum(1 for _, ok, _ in RESULTS if not ok)
     print(f"\n共 {len(RESULTS)} 项，失败 {n_bad} 项")
     return RESULTS

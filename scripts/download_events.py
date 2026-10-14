@@ -256,9 +256,75 @@ def gdhs():
                         "股东户数元数据（未保存、未计算统计）")
 
 
+def reports():
+    """个股研报（东方财富 reportapi，逐只股票，发布日 2013-06-01 ~ 2023-12-31）。avail_date = publishDate。
+    只保留元数据（机构、评级、评级变动、是否首次覆盖），不下载 PDF；接口按发布日过滤，不含测试期。"""
+    import random
+    from common import META, load_df
+    t0 = time.time()
+    part_dir = OUT / "report_parts"
+    part_dir.mkdir(parents=True, exist_ok=True)
+    codes = load_df(META / "universe.parquet")["code"].tolist()
+    keep = ["stockCode", "publishDate", "orgSName", "emRatingName", "lastEmRatingName", "ratingChange", "indvIsNew",
+            "sRatingName", "reportType", "infoCode"]
+    for i, c in enumerate(codes):
+        pf = part_dir / f"{c}.parquet"
+        if pf.exists():
+            continue
+        rows, page = [], 1
+        while True:
+            p = dict(industryCode="*", pageSize=100, industry="*", rating="*", ratingChange="*",
+                     beginTime=START, endTime="2023-12-31", pageNo=page, fields="", qType=0, orgCode="",
+                     code=c.split(".")[1], rcode="", p=page, pageNum=page, pageNumber=page)
+            js = get_json("https://reportapi.eastmoney.com/report/list", params=p, timeout=30, tries=6)
+            data = js.get("data") or []
+            rows += [{k: d.get(k) for k in keep} for d in data]
+            if page >= (js.get("TotalPage") or 0) or not data:
+                break
+            page += 1
+            time.sleep(0.2)
+        pd.DataFrame(rows, columns=keep).astype(str).to_parquet(pf)
+        if i % 200 == 0:
+            print("reports", i, c, len(rows), round(time.time() - t0), flush=True)
+        time.sleep(0.1 + random.random() * 0.2)
+    df = pd.concat([pd.read_parquet(p) for p in sorted(part_dir.glob("*.parquet"))], ignore_index=True)
+    df = df.rename(columns={"stockCode": "code6", "publishDate": "publish"})
+    df["publish"] = pd.to_datetime(df["publish"], errors="coerce")
+    df = df[df["publish"] <= END].drop_duplicates("infoCode")
+    df["avail_date"] = df["publish"].dt.normalize()
+    save_df(df, OUT / "reports.parquet")
+    log_download("events/reports", "东方财富 个股研报元数据（reportapi.eastmoney.com/report/list）",
+                 f"{START}~{END}", len(df), t0, note="avail_date = 发布日；不含 PDF 与盈利预测数值")
+
+
+def unlock():
+    """限售解禁（东方财富，AKShare stock_restricted_release_detail_em），解禁日 2013-06 ~ 2023-12。
+    接口自带"解禁后 20 日涨跌幅"（未来数据）和"解禁前 20 日涨跌幅"，两列下载时直接丢弃。
+    时点：解禁日程在发行时已公开，实际解禁数量在解禁前约 3 个交易日的提示性公告中披露；
+    信号只在解禁日前 3 个交易日起使用。"""
+    import akshare as ak
+    t0 = time.time()
+    parts = []
+    for s, e in months():
+        df = retry(lambda: ak.stock_restricted_release_detail_em(start_date=s.strftime("%Y%m%d"),
+                                                                  end_date=e.strftime("%Y%m%d")))
+        if df is not None and len(df):
+            parts.append(df.drop(columns=[c for c in df.columns if "涨跌幅" in c]))
+        print("unlock", s.date(), 0 if df is None else len(df), flush=True)
+    df = pd.concat(parts, ignore_index=True)
+    df = df.rename(columns={"股票代码": "code6", "解禁时间": "unlock_date", "限售股类型": "kind", "解禁数量": "shares",
+                            "实际解禁数量": "shares_actual", "实际解禁市值": "value_actual",
+                            "占解禁前流通市值比例": "ratio_fmv", "解禁前一交易日收盘价": "close_prev"})
+    df = df.drop(columns=[c for c in ("序号", "股票简称") if c in df.columns])
+    df["unlock_date"] = pd.to_datetime(df["unlock_date"])
+    save_df(df, OUT / "unlock.parquet")
+    log_download("events/unlock", "东方财富 限售解禁明细（AKShare stock_restricted_release_detail_em）", f"{START}~{END}",
+                 len(df), t0, note="丢弃解禁前后 20 日涨跌幅两列；信号只在解禁日前 3 个交易日起使用")
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for job in sys.argv[1:] or ["lhb", "dzjy", "buyback"]:
         {"lhb": lhb, "dzjy": dzjy, "buyback": buyback, "jgdy": jgdy, "yjyg": yjyg,
          "zengchi": lambda: buyback("增持", "zengchi"), "jgdy_slow": jgdy_slow,
-         "gdhs": gdhs}[job]()
+         "gdhs": gdhs, "reports": reports, "unlock": unlock}[job]()
