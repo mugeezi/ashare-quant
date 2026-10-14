@@ -245,3 +245,151 @@ def h10(md, ext, min_ratio=0.001):
     s = np.full((md.T, md.N), np.nan)
     s[t[ok], j[ok]] = ratio[ok] * (1 + g["wprem"].values[ok])
     return SignalStrategy(s)
+
+
+# ================================================================ 第二批：事件窗口、关注度排除
+def window_score(md, t, j, base, W=20):
+    """事件在信号日 t 起 W 个交易日内都是候选。得分 = base × 1000 + 剩余天数（同强度时越新越靠前）。
+    同一格多个事件取最大值。只向后（未来方向）填充事件本身的有效期，不使用事件之后的任何数据。"""
+    s = np.full((md.T, md.N), np.nan)
+    base = np.asarray(base, dtype=float)
+    for tt, jj, b in zip(t, j, base):
+        hi = min(md.T, tt + W)
+        v = b * 1000 + (W - np.arange(hi - tt))
+        cur = s[tt:hi, jj]
+        s[tt:hi, jj] = np.where(np.isnan(cur) | (v > cur), v, cur)
+    return s
+
+
+def quiet_mask(md, w=10, max_abs=0.07, turn_mult=2.0):
+    """关注度排除：过去 w 个交易日（含 t）内没有收盘涨停或跌停、没有单日涨跌幅绝对值 ≥ max_abs，
+    且 t 日换手率不超过过去 60 日换手率中位数的 turn_mult 倍。全部只用 t 日及以前的数据。"""
+    a = md.a
+    nl = a["no_limit"] == 0
+    lim = ((a["close"] >= a["up_limit"] - TOL) | (a["close"] <= a["down_limit"] + TOL)) & nl & (a["tradestatus"] == 1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r = np.abs(a["close"] / a["preclose"] - 1)
+    big = (r >= max_abs) & (a["tradestatus"] == 1) & nl
+    bad = (lim | big).astype(float)
+    recent = pd.DataFrame(bad).rolling(w, min_periods=1).max().values > 0
+    turn = np.where(a["tradestatus"] == 1, a["turn"].astype(float), np.nan)
+    med = pd.DataFrame(turn).rolling(60, min_periods=20).median().values
+    hot = turn > turn_mult * med
+    return ~recent & ~hot
+
+
+def _apply_quiet(md, s, quiet):
+    if quiet:
+        s = np.where(quiet_mask(md), s, np.nan)
+    return s
+
+
+# ---------------------------------------------------------------- H11 回购预案窗口
+def h11(md, ext, W=20, quiet=False):
+    ev = buyback_events(ext["buyback"])
+    t, j, _ = event_rows(md, ev, after_close_shift=True)
+    return SignalStrategy(_apply_quiet(md, window_score(md, t, j, np.ones(len(t)), W), quiet))
+
+
+# ---------------------------------------------------------------- 业绩预告正面事件
+def yjyg_positive(df: pd.DataFrame, min_chg=50.0) -> pd.DataFrame:
+    x = df[df["metric"].astype(str).str.contains("归属于上市公司股东的净利润", na=False)].copy()
+    x = x.sort_values("avail_date").drop_duplicates(["code6", "report_period"], keep="first")
+    pos = (x["type"] == "扭亏") | ((x["type"] == "预增") & (x["chg_pct"] >= min_chg))
+    x = x[pos].copy()
+    x["strength"] = np.where(x["type"] == "扭亏", np.log1p(2.0), np.log1p(np.clip(x["chg_pct"].astype(float), 0, 1000) / 100))
+    return x
+
+
+def h12(md, ext, W=20, quiet=False):
+    ev = yjyg_positive(ext["yjyg"])
+    t, j, ev = event_rows(md, ev, after_close_shift=True)
+    return SignalStrategy(_apply_quiet(md, window_score(md, t, j, ev["strength"].values, W), quiet))
+
+
+# ---------------------------------------------------------------- H13 业绩预告正面且未被追涨
+def h13(md, ext, W=20, max_react=0.03):
+    ev = yjyg_positive(ext["yjyg"])
+    t, j, ev = event_rows(md, ev, after_close_shift=True)
+    d0 = md.dates.searchsorted(pd.to_datetime(ev["avail_date"]).values, side="left")   # 公告日（或其后首个交易日）
+    c = hfq(md, "close")
+    base = np.maximum(d0 - 1, 0)                                                       # 公告日前一交易日收盘
+    with np.errstate(invalid="ignore", divide="ignore"):
+        react = c[t, j] / c[base, j] - 1
+    lu = limit_up_close(md)[t, j]
+    ok = np.isfinite(react) & (react < max_react) & ~lu
+    return SignalStrategy(window_score(md, t[ok], j[ok], ev["strength"].values[ok], W))
+
+
+# ---------------------------------------------------------------- 增持计划
+ZC_EXCL = ("减持", "进展", "完成", "完毕", "结果", "实施情况", "届满", "终止", "补充", "更正", "问询", "回复", "法律意见", "核查",
+           "延期", "调整", "取消", "股东大会", "决议", "会议", "员工持股", "债", "提示性公告的更正")
+
+
+def zengchi_events(df: pd.DataFrame) -> pd.DataFrame:
+    tt = df["title"].astype(str)
+    m = tt.str.contains("增持") & tt.str.contains("计划|首次增持|增持公司股份的公告|增持股份的公告") & \
+        ~tt.str.contains("|".join(ZC_EXCL))
+    ev = df[m].sort_values("avail_date")
+    keep, last = [], {}
+    for idx, c, d in zip(ev.index, ev["code6"].astype(str), pd.to_datetime(ev["avail_date"])):
+        if c in last and (d - last[c]).days < 90:
+            continue
+        last[c] = d
+        keep.append(idx)
+    return ev.loc[keep]
+
+
+def h14(md, ext, W=20, quiet=False):
+    ev = zengchi_events(ext["zengchi"])
+    t, j, _ = event_rows(md, ev, after_close_shift=True)
+    return SignalStrategy(_apply_quiet(md, window_score(md, t, j, np.ones(len(t)), W), quiet))
+
+
+# ---------------------------------------------------------------- H15 信息事件合成
+def h15(md, ext, W=20, quiet=True):
+    parts = []
+    ev = buyback_events(ext["buyback"]); t, j, _ = event_rows(md, ev, True); parts.append((t, j))
+    ev = yjyg_positive(ext["yjyg"]); t, j, _ = event_rows(md, ev, True); parts.append((t, j))
+    ev = zengchi_events(ext["zengchi"]); t, j, _ = event_rows(md, ev, True); parts.append((t, j))
+    cnt = np.zeros((md.T, md.N))
+    rec = np.full((md.T, md.N), np.nan)
+    for t, j in parts:
+        w = window_score(md, t, j, np.zeros(len(t)), W)          # 0×1000 + 剩余天数
+        has = np.isfinite(w)
+        cnt += has
+        rec = np.where(has & (np.isnan(rec) | (w > rec)), w, rec)
+    s = np.where(cnt > 0, cnt * 1000 + rec, np.nan)
+    return SignalStrategy(_apply_quiet(md, s, quiet))
+
+
+# ---------------------------------------------------------------- H17 关注度排除本身（随机打分基准）
+def h17(md, ext=None, seed=0):
+    rng = np.random.default_rng(seed)
+    months = pd.Series(md.dates).dt.to_period("M")
+    mid = months.factorize()[0]
+    draws = rng.random((mid.max() + 1, md.N))
+    s = draws[mid]                                               # 每只股票每月一个固定随机分，便于续持
+    return SignalStrategy(np.where(quiet_mask(md), s, np.nan))
+
+
+# ---------------------------------------------------------------- H18 龙虎榜机构净买、当日未大涨
+def h18(md, ext, max_ret=0.03, W=5):
+    df = ext["lhb"]
+    df = df[(df["n_buy_inst"] >= 2) & (df["inst_net"] > 0) & (df["net_ratio_pct"] >= 5.0)]
+    t, j, df = event_rows(md, df)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r = md.a["close"][t, j] / md.a["preclose"][t, j] - 1
+    ok = np.isfinite(r) & (r < max_ret)
+    return SignalStrategy(window_score(md, t[ok], j[ok], df["net_ratio_pct"].values[ok] / 100, W))
+
+
+# ---------------------------------------------------------------- H19 大宗交易：机构专用席位溢价买入
+def h19(md, ext, W=10):
+    df = ext["dzjy"]
+    df = df[(df["premium"] >= 0) & df["buyer"].astype(str).str.contains("机构专用")]
+    g = df.groupby(["avail_date", "code6"], as_index=False).agg(amount=("amount", "sum"))
+    t, j, g = event_rows(md, g)
+    ratio = g["amount"].values / md.a["fmv"][t, j]
+    ok = np.isfinite(ratio) & (ratio >= 0.001)
+    return SignalStrategy(window_score(md, t[ok], j[ok], np.log1p(ratio[ok] * 100), W))

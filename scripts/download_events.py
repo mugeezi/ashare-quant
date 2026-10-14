@@ -76,13 +76,13 @@ def dzjy():
     log_download("events/dzjy", "东方财富 大宗交易每日明细（AKShare stock_dzjy_mrmx）", f"{START}~{END}", len(df), t0)
 
 
-def buyback():
+def buyback(key="回购", name="buyback"):
     t0 = time.time()
     rows = []
     for s, e in months():
         page, total = 1, None
         while True:
-            js = retry(lambda: cninfo_search("回购", s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d"), page))
+            js = retry(lambda: cninfo_search(key, s.strftime("%Y-%m-%d"), e.strftime("%Y-%m-%d"), page))
             ann = js.get("announcements") or []
             total = js.get("totalpages", 0)
             for a in ann:
@@ -93,13 +93,13 @@ def buyback():
                 break
             page += 1
             time.sleep(0.3)
-        print("buyback", s.date(), total, len(rows), flush=True)
+        print(name, s.date(), total, len(rows), flush=True)
     df = pd.DataFrame(rows).drop_duplicates("ann_id")
     df["title"] = df["title"].str.replace(r"<.*?>", "", regex=True)
     df["ann_date"] = pd.to_datetime(df["ann_time"], unit="ms", utc=True).dt.tz_convert("Asia/Shanghai").dt.tz_localize(None)
     df["avail_date"] = df["ann_date"].dt.normalize()
-    save_df(df, OUT / "buyback.parquet")
-    log_download("events/buyback", "巨潮资讯 hisAnnouncement/query searchkey=回购", f"{START}~{END}", len(df), t0,
+    save_df(df, OUT / f"{name}.parquet")
+    log_download(f"events/{name}", f"巨潮资讯 hisAnnouncement/query searchkey={key}", f"{START}~{END}", len(df), t0,
                  note="avail_date = 公告日；公告时刻无法确认是否盘后，信号统一顺延到下一交易日")
 
 
@@ -116,6 +116,59 @@ def em_report(report, filt, sort="NOTICE_DATE", page_size=500, columns="ALL"):
             break
         page += 1
     return out
+
+
+def jgdy_slow():
+    """机构调研历史（东方财富 RPT_ORG_SURVEY，每行一家接待对象）。该表分页超过约 50 页、或加额外过滤条件时
+    返回"服务器繁忙"。每次调研的第一行 NUMBERNEW="1"，且 SUM = 该次接待机构总数；按 NUMBERNEW 升序排序后，
+    只读到 NUMBERNEW 不再为 "1" 为止。按 5 天窗口请求并限速。avail_date = 公告日期。"""
+    import random
+    t0 = time.time()
+    part_dir = OUT / "jgdy_parts"
+    part_dir.mkdir(parents=True, exist_ok=True)
+    for old in part_dir.glob("*.parquet"):
+        if not old.name.startswith("w5_"):
+            old.unlink()
+    for s in pd.date_range(START, END, freq="5D"):
+        e = min(s + pd.Timedelta(days=4), pd.Timestamp(END))
+        pf = part_dir / f"w5_{s.date()}.parquet"
+        if pf.exists():
+            continue
+        rows, page, busy = [], 1, 0
+        while page <= 50:
+            f = f"(NOTICE_DATE>='{s.date()}')(NOTICE_DATE<='{e.date()}')"
+            js = get_json(EM_DC, params=dict(reportName="RPT_ORG_SURVEY", columns="ALL", filter=f, pageSize=50,
+                                             pageNumber=page, sortColumns="NUMBERNEW", sortTypes="1",
+                                             source="WEB", client="WEB"), timeout=60, tries=8)
+            res = js.get("result") or {}
+            data = res.get("data") or []
+            if not data and js.get("message") != "ok" and "为空" not in str(js.get("message")):
+                busy += 1
+                if busy > 6:
+                    raise RuntimeError(f"{s.date()} 第 {page} 页持续返回：{js.get('message')}")
+                time.sleep(20 * busy)
+                continue
+            busy = 0
+            first = [d for d in data if str(d.get("NUMBERNEW")) == "1"]
+            rows += [{k: d.get(k) for k in ("SECURITY_CODE", "NOTICE_DATE", "RECEIVE_START_DATE", "RECEIVE_END_DATE",
+                                             "RECEIVE_WAY_EXPLAIN", "SUM")} for d in first]
+            if len(first) < len(data) or page >= (res.get("pages") or 0) or not data:
+                break
+            page += 1
+            time.sleep(0.3 + random.random() * 0.5)
+        pd.DataFrame(rows).to_parquet(pf)
+        print("jgdy", s.date(), len(rows), flush=True)
+    df = pd.concat([pd.read_parquet(p) for p in sorted(part_dir.glob("w5_*.parquet"))], ignore_index=True)
+    df = df.rename(columns={"SECURITY_CODE": "code6", "NOTICE_DATE": "notice_date", "RECEIVE_START_DATE": "visit_start",
+                            "RECEIVE_END_DATE": "visit_end", "RECEIVE_WAY_EXPLAIN": "way", "SUM": "n_inst"})
+    for c in ("notice_date", "visit_start", "visit_end"):
+        df[c] = pd.to_datetime(df[c], errors="coerce")
+    g = df.groupby(["code6", "notice_date", "visit_start"], as_index=False).agg(n_inst=("n_inst", "max"),
+                                                                                way=("way", "first"))
+    g["avail_date"] = g["notice_date"].dt.normalize()
+    save_df(g, OUT / "jgdy.parquet")
+    log_download("events/jgdy", "东方财富 机构调研历史 RPT_ORG_SURVEY（每次调研取 NUMBERNEW=1 的首行，SUM=机构数）",
+                 f"{START}~{END}", len(g), t0, note="avail_date = 公告日期")
 
 
 def jgdy():
@@ -168,7 +221,44 @@ def yjyg():
                  len(df), t0, note="avail_date = 公告日期；同一预告的修正公告为单独记录")
 
 
+def gdhs():
+    """股东户数（东方财富，AKShare stock_zh_a_gdhs，按统计截止日批量；只取季末截止日）。
+    avail_date = 公告日期。若东方财富记录的公告日期晚于真实首次披露日，只会让信号更晚（保守），不会产生前视。
+    截止日 2013-06-30 ~ 2023-12-31；保存前丢弃公告日在 2023-12-31 之后的记录（测试期）。"""
+    import akshare as ak
+    from common import log_test_access
+    t0 = time.time()
+    parts = []
+    for p in pd.date_range("2013-06-30", "2023-12-31", freq="QE"):
+        df = retry(lambda: ak.stock_zh_a_gdhs(symbol=p.strftime("%Y%m%d")))
+        if df is None or not len(df):
+            continue
+        df = df.rename(columns={"代码": "code6", "股东户数-本次": "holders", "股东户数-上次": "holders_prev",
+                                "股东户数-增减比例": "chg_pct", "股东户数统计截止日-本次": "period_end",
+                                "股东户数统计截止日-上次": "period_prev", "户均持股数量": "shares_per_holder",
+                                "总股本": "total_shares", "公告日期": "notice_date"})
+        keep = ["code6", "holders", "holders_prev", "chg_pct", "period_end", "period_prev", "shares_per_holder",
+                "total_shares", "notice_date"]
+        df = df[[k for k in keep if k in df.columns]].copy()
+        parts.append(df)
+        print("gdhs", p.date(), len(df), flush=True)
+    df = pd.concat(parts, ignore_index=True)
+    df["notice_date"] = pd.to_datetime(df["notice_date"], errors="coerce")
+    n_test = int((df["notice_date"] > END).sum())
+    df = df[df["notice_date"] <= END].copy()
+    df["code6"] = df["code6"].astype(str).str.zfill(6)
+    df["avail_date"] = df["notice_date"].dt.normalize()
+    save_df(df, OUT / "gdhs.parquet")
+    log_download("events/gdhs", "东方财富 股东户数（AKShare stock_zh_a_gdhs，季末截止日）", "截止日 2013Q2~2023Q4",
+                 len(df), t0, note=f"avail_date = 公告日期；丢弃公告日在测试期的 {n_test} 条")
+    if n_test:
+        log_test_access(f"下载股东户数时接口返回 {n_test} 条 2024 年以后公告的记录，保存前丢弃",
+                        "股东户数元数据（未保存、未计算统计）")
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for job in sys.argv[1:] or ["lhb", "dzjy", "buyback"]:
-        {"lhb": lhb, "dzjy": dzjy, "buyback": buyback, "jgdy": jgdy, "yjyg": yjyg}[job]()
+        {"lhb": lhb, "dzjy": dzjy, "buyback": buyback, "jgdy": jgdy, "yjyg": yjyg,
+         "zengchi": lambda: buyback("增持", "zengchi"), "jgdy_slow": jgdy_slow,
+         "gdhs": gdhs}[job]()
