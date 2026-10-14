@@ -393,3 +393,17 @@ def h19(md, ext, W=10):
     ratio = g["amount"].values / md.a["fmv"][t, j]
     ok = np.isfinite(ratio) & (ratio >= 0.001)
     return SignalStrategy(window_score(md, t[ok], j[ok], np.log1p(ratio[ok] * 100), W))
+
+
+# ---------------------------------------------------------------- H20 股东户数下降
+def gdhs_decline(df: pd.DataFrame, lo=-60.0, hi=-10.0) -> pd.DataFrame:
+    x = df[pd.to_datetime(df["avail_date"]) >= pd.to_datetime(df["period_end"])]
+    x = x[(x["chg_pct"] <= hi) & (x["chg_pct"] >= lo)].copy()
+    x["strength"] = -x["chg_pct"].astype(float) / 100
+    return x
+
+
+def h20(md, ext, W=20, quiet=False):
+    ev = gdhs_decline(ext["gdhs"])
+    t, j, ev = event_rows(md, ev, after_close_shift=True)
+    return SignalStrategy(_apply_quiet(md, window_score(md, t, j, ev["strength"].values, W), quiet))

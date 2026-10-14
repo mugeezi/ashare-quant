@@ -11,7 +11,7 @@ from framework import ROOT, Lab
 
 EV = ROOT / "data" / "events"
 LOAD = {"buyback": "buyback.parquet", "yjyg": "yjyg.parquet", "zengchi": "zengchi.parquet", "lhb": "lhb_jg.parquet",
-        "dzjy": "dzjy.parquet", "jgdy": "jgdy.parquet"}
+        "dzjy": "dzjy.parquet", "jgdy": "jgdy.parquet", "gdhs": "gdhs.parquet"}
 CFG = dict(n_target=10, renew=True, hold_days=10)
 SPECS = {
     "H11": (["buyback"], {"base": partial(S.h11), "q": partial(S.h11, quiet=True)}),
@@ -22,6 +22,7 @@ SPECS = {
     "H17": ([], {"base": lambda md, ext: S.h17(md)}),
     "H18": (["lhb"], {"base": partial(S.h18)}),
     "H19": (["dzjy"], {"base": partial(S.h19)}),
+    "H20": (["gdhs"], {"base": partial(S.h20), "q": partial(S.h20, quiet=True)}),
 }
 
 
