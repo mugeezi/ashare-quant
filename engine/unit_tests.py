@@ -153,6 +153,33 @@ def main():
         ro = True
     check("View 只到 t 日、只读", ok_len and ro)
 
+    # U11 续持 + 滞后带
+    class Sched:
+        def __init__(self, f):
+            self.f = f
+
+        def select(self, t, v):
+            return self.f(t)
+
+    md = make_md()
+    r = Backtest(md, Sched(lambda t: [0, 1, 2, 3]), cfg(md, hold_days=3, renew=True)).run()
+    buys = r.trades[r.trades.side == "buy"]
+    check("续持：一直排第一的股票不卖出", len(buys) == 1 and (r.trades.side == "sell").sum() == 0
+          and r.stat.get("renewals", 0) >= 5, f"续持 {r.stat.get('renewals', 0)} 次")
+    order = lambda t: [0, 1, 2, 3] if t < 6 else [1, 2, 3, 0]          # 第 6 日起股票 0 掉到第 4 名
+    r = Backtest(md, Sched(order), cfg(md, hold_days=3, renew=True, renew_k=3)).run()
+    s0 = r.trades[(r.trades.side == "sell") & (r.trades.code == md.codes[0])]
+    check("续持：掉出前 K 名后到期卖出", len(s0) == 1, f"卖出日序号 {md.dates.get_loc(s0.iloc[0].date) if len(s0) else None}")
+    r = Backtest(md, Sched(order), cfg(md, hold_days=3, renew=True, renew_k=4)).run()
+    check("续持：K 放宽到 4 时仍在滞后带内，不卖", ((r.trades.side == "sell") & (r.trades.code == md.codes[0])).sum() == 0)
+    r = Backtest(md, Sched(lambda t: [0, 1, 2, 3]), cfg(md, hold_days=3, renew=False)).run()
+    check("关闭续持时照常到期卖出", (r.trades.side == "sell").sum() >= 5)
+    md = make_md()
+    md.a["open"][1, 0] = md.a["up_limit"][1, 0]
+    r = Backtest(md, Fixed([0, 1], once=True), cfg(md, renew=True)).run()
+    check("续持模式：新买入只从前 n_target 名中选（第 1 名涨停买不进时不替补）", (r.trades.side == "buy").sum() == 0
+          if len(r.trades) else True)
+
     n_bad = sum(1 for _, ok, _ in RESULTS if not ok)
     print(f"\n共 {len(RESULTS)} 项，失败 {n_bad} 项")
     return RESULTS

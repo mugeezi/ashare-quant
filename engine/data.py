@@ -80,6 +80,7 @@ def load_market(start: str = "2013-06-01", end: str = "2023-12-31", final_test: 
     with np.errstate(invalid="ignore", divide="ignore"):
         a["amt20"] = np.where(n20 >= LIQ_WINDOW, s20 / np.maximum(n20, 1), np.nan)
     md = MarketData(dates=dates, codes=codes, a=a)
+    add_derived(md)
     md.universe = load_df(META / "universe.parquet").set_index("code")
     md.exits = load_df(META / "corporate_exits.parquet").set_index("code")
     idx = {}
@@ -87,6 +88,22 @@ def load_market(start: str = "2013-06-01", end: str = "2023-12-31", final_test: 
         x = load_df(INDEX / f"{name}.parquet").set_index("date")["close"]
         idx[name] = x.reindex(dates)
     md.index_close = pd.DataFrame(idx)
+    return md
+
+
+def add_derived(md: MarketData) -> MarketData:
+    """派生字段（只用当日及以前的数据）：
+    fshares 流通股本 = 成交量 ÷ (换手率 / 100)；停牌或无成交日沿用上一个有效值。
+    fmv 流通市值 = 收盘价 × fshares。"""
+    a = md.a
+    if "fmv" in a:
+        return md
+    vol, turn = a["volume"].astype(np.float64), a["turn"].astype(np.float64)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        fs = np.where((vol > 0) & (turn > 0), vol / (turn / 100.0), np.nan)
+    fs = pd.DataFrame(fs).ffill().values                  # 只向后填充，不用未来值
+    a["fshares"] = fs.astype(np.float64)
+    a["fmv"] = (a["close"] * fs).astype(np.float64)
     return md
 
 

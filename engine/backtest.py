@@ -10,10 +10,13 @@
            每只目标金额 = 上一日收盘净值 / 目标持仓数，按 100 股整手向下取整，不足一手不买。
   收盘  4) 估值：持仓按收盘价计市值（复权因子换算送转/分红后的股数）；停牌按最后收盘价，
            可选"压力估值"：停牌期间按同期中证全指涨跌折算。
-        5) 退出决策：持有满 hold_days 个交易日、进入退市整理期、或策略要求退出 → 次日开盘卖出。
-        6) 生成次日候选：调用 strategy.select(t, view)；view 只含 t 日及以前的数据。
+        5) 当日候选排名：调用 strategy.select(t, view)；view 只含 t 日及以前的数据。
            引擎再统一过滤：当日正常交易、非 ST、非 S 股、不在退市整理期、上市满 60 个交易日、
            前 20 日平均成交额 ≥ 5000 万、尚未到退市日。
+        6) 退出决策：持有满 hold_days 个交易日、进入退市整理期、或策略要求退出 → 次日开盘卖出。
+           续持（renew=True）：到期时若该股仍在当日候选前 renew_k 名（滞后带），则不卖出，
+           持有期从次日重新计算；换股而来的持仓不续持。
+        7) 次日买入候选：候选前 buy_top 名（续持模式下默认 = n_target），依次尝试。
 
 红利税（持有不足 1 个月按 20%）未单独扣除：复权因子把现金分红视为再投资，2–10 日持仓
 跨除息日的情形很少，影响很小，报告中注明。
@@ -47,6 +50,15 @@ class Config:
     min_listed_days: int = 60
     min_amt20: float = 5e7
     filters: bool = True                # False 仅供路径检验：不做 ST/新股/流动性过滤
+    renew: bool = False                 # 续持：到期时若仍在当日候选前 renew_k 名，则不卖出、重新计算持有期
+    renew_k: int | None = None          # 滞后带宽度，默认 3 × n_target
+    buy_top: int | None = None          # 新买入只从候选前 buy_top 名中选；默认 renew 时 = n_target，否则 = max_candidates
+
+    def __post_init__(self):
+        if self.renew_k is None:
+            self.renew_k = 3 * self.n_target
+        if self.buy_top is None:
+            self.buy_top = self.n_target if self.renew else self.max_candidates
 
 
 @dataclass
@@ -66,6 +78,8 @@ class Position:
     susp_days: int = 0
     origin: str = ""        # 换股而来时记录原股票代码
     entry_code: str = ""
+    hold_start: int = -1    # 当前持有期的起点（续持后更新为续持决定日的下一交易日）
+    renewals: int = 0
 
 
 class Backtest:
@@ -149,7 +163,7 @@ class Backtest:
             rts.append(dict(code=p.entry_code or md.codes[p.c], entry_date=dates[p.entry_t], exit_date=dates[t],
                             hold_days=t - p.entry_t, cost=p.cost, proceeds=proceeds, pnl=proceeds - p.cost,
                             ret=proceeds / p.cost - 1 if p.cost > 0 else np.nan, how=how,
-                            locked_days=p.locked_days, susp_days=p.susp_days, via=p.origin))
+                            locked_days=p.locked_days, susp_days=p.susp_days, via=p.origin, renewals=p.renewals))
 
         for t in range(t0, t1 + 1):
             date = dates[t]
@@ -238,7 +252,7 @@ class Backtest:
                         continue
                     cash -= amt + com
                     positions.append(Position(c=c, shares=shares, adj_entry=self.ADJ[t, c], entry_t=t, entry_px=px,
-                                              cost=amt + com, entry_code=md.codes[c]))
+                                              cost=amt + com, entry_code=md.codes[c], hold_start=t))
                     trades.append(dict(date=date, code=md.codes[c], side="buy", price=px, shares=shares, amount=amt,
                                        commission=com, stamp=0.0, reason=""))
                     stat["buys"] += 1
@@ -269,24 +283,32 @@ class Backtest:
             nav = cash + mv
             navs.append((date, nav, cash, len(positions), sum(p.pending for p in positions)))
             nav_prev = nav
-            # 5) 退出决策
-            dp = self.md.a["delist_period"]
-            for p in positions:
-                if p.pending:
-                    continue
-                if dp[t, p.c] == 1:
-                    p.pending, p.reason = True, "delist_period"
-                elif t - p.entry_t >= cfg.hold_days - 1:      # 开盘买入、第 hold_days 个交易日后开盘卖出
-                    p.pending, p.reason = True, "hold_days"
-                elif hasattr(self.s, "should_exit") and self.s.should_exit(t, View(md, t), p):
-                    p.pending, p.reason = True, "strategy_exit"
-            # 6) 次日候选
+            # 5) 当日候选排名（收盘后，只用 t 日及以前数据）
+            ranked = np.array([], dtype=int)
             if t < t1:
                 raw = np.asarray(self.s.select(t, View(md, t)), dtype=int)
                 if len(raw):
                     ok = self.eligible(t)
-                    raw = raw[ok[raw]]
-                cands = raw[: cfg.max_candidates]
+                    ranked = raw[ok[raw]]
+            # 6) 退出决策
+            dp = self.md.a["delist_period"]
+            topk = set(ranked[: cfg.renew_k].tolist()) if cfg.renew else set()
+            for p in positions:
+                if p.pending:
+                    continue
+                start = p.hold_start if p.hold_start >= 0 else p.entry_t
+                if dp[t, p.c] == 1:
+                    p.pending, p.reason = True, "delist_period"
+                elif t - start >= cfg.hold_days - 1:      # 开盘买入、第 hold_days 个交易日后开盘卖出
+                    if cfg.renew and p.c in topk and not p.origin:
+                        p.hold_start, p.renewals = t + 1, p.renewals + 1
+                        stat["renewals"] = stat.get("renewals", 0) + 1
+                    else:
+                        p.pending, p.reason = True, "hold_days"
+                elif hasattr(self.s, "should_exit") and self.s.should_exit(t, View(md, t), p):
+                    p.pending, p.reason = True, "strategy_exit"
+            # 7) 次日买入候选
+            cands = ranked[: cfg.buy_top]
         nav = pd.DataFrame(navs, columns=["date", "nav", "cash", "n_pos", "n_pending"]).set_index("date")
         return Result(nav=nav, trades=pd.DataFrame(trades), roundtrips=pd.DataFrame(rts), stat=stat, cfg=cfg, md=md)
 

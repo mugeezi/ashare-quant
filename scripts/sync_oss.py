@@ -4,6 +4,7 @@
     python scripts/sync_oss.py push                # 上传 data/ 全部文件 + manifest.json
     python scripts/sync_oss.py pull [--dest DIR]   # 按 manifest 下载并逐个校验 SHA256
     python scripts/sync_oss.py verify              # 只比较本地与远端 manifest，不传输
+    python scripts/sync_oss.py push-code           # 代码备份：git bundle 上传到 code/ashare-quant.bundle
 
 凭据只从环境变量读取：OSS_ACCESS_KEY_ID、OSS_ACCESS_KEY_SECRET、OSS_ENDPOINT、OSS_BUCKET。
 本脚本不写入、不打印任何凭据。
@@ -201,13 +202,29 @@ def verify(args):
     return 0 if not (only_l or only_r or diff) else 1
 
 
+def push_code(args):
+    """GitHub 不可用时的代码备份：git bundle（含完整历史）上传到 code/ashare-quant.bundle。"""
+    import subprocess
+    import tempfile
+    b = bucket()
+    with tempfile.TemporaryDirectory() as td:
+        bf = Path(td) / "ashare-quant.bundle"
+        subprocess.run(["git", "-C", str(ROOT), "bundle", "create", str(bf), "--all"], check=True, capture_output=True)
+        h = sha256(bf)
+        b.put_object_from_file("code/ashare-quant.bundle", str(bf), headers={"x-oss-meta-sha256": h})
+        head = subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%h %s"], capture_output=True, text=True).stdout.strip()
+        print(f"已上传 code/ashare-quant.bundle（{bf.stat().st_size / 1e3:,.0f} KB，sha256 {h[:12]}…，HEAD {head}）")
+    if remote_sha(b, "code/ashare-quant.bundle") != h:
+        sys.exit("bundle 上传后校验失败")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["push", "pull", "verify"])
+    ap.add_argument("cmd", choices=["push", "pull", "verify", "push-code"])
     ap.add_argument("--dest", help="pull 的目标目录（默认 data/）")
     ap.add_argument("--workers", type=int, default=8)
     args = ap.parse_args()
-    sys.exit({"push": push, "pull": pull, "verify": verify}[args.cmd](args))
+    sys.exit({"push": push, "pull": pull, "verify": verify, "push-code": push_code}[args.cmd](args))
 
 
 if __name__ == "__main__":
