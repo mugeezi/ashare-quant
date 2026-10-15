@@ -158,3 +158,15 @@ def factory(H=10, use_events=False, max_year=None, last_year=2020, keep=None, se
                                  keep=keep, seeds=seeds, model=model, rank_inputs=rank_inputs)
         return RegimeStrategy(sc) if regime else SignalStrategy(sc)
     return f
+
+
+def ensemble_factory(H=20, use_events=True, max_year=None, last_year=2020, **kw):
+    """H34：H27（行情 + 事件）与 H31（再加基本面）两个打分各自转截面百分位后取平均。
+    ext 需要包含财报（fin）；H27 部分会忽略 fin。"""
+    def f(md, ext):
+        e27 = {k: v for k, v in ext.items() if k != "fin"}
+        s27 = walk_forward_scores(md, e27, H=H, max_year=max_year, last_year=last_year)
+        s31 = walk_forward_scores(md, ext, H=H, max_year=max_year, last_year=last_year)
+        r = (pd.DataFrame(s27).rank(axis=1, pct=True).values + pd.DataFrame(s31).rank(axis=1, pct=True).values) / 2
+        return SignalStrategy(r)
+    return f

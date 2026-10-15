@@ -15,7 +15,7 @@ def main(hyp, var):
     sp = SPECS[(hyp, var)]
     lab = Lab()
     md = lab.md
-    ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
+    ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None   # plus="fin" 时加载财报
     extra = {k: sp[k] for k in ("keep", "seeds", "model", "rank_inputs") if k in sp}
     t = time.time()
     sc = ml.walk_forward_scores(md, ext if sp["use_events"] else None, H=sp["H"], last_year=2020, **extra)

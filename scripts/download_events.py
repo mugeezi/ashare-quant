@@ -322,9 +322,62 @@ def unlock():
                  len(df), t0, note="丢弃解禁前后 20 日涨跌幅两列；信号只在解禁日前 3 个交易日起使用")
 
 
+def fin():
+    """业绩报表（东方财富 RPT_LICO_FN_CPD，按报告期）。avail_date = NOTICE_DATE（首次公告日）。
+    注意：数值可能是最新口径（若之后有追溯调整），已在 data_registry 登记为风险；
+    报告期 2012Q4 ~ 2023Q4，保存前丢弃公告日在 2023-12-31 之后的记录。"""
+    from common import log_test_access
+    t0 = time.time()
+    cols = ("SECURITY_CODE,REPORTDATE,NOTICE_DATE,UPDATE_DATE,BASIC_EPS,TOTAL_OPERATE_INCOME,PARENT_NETPROFIT,"
+            "WEIGHTAVG_ROE,YSTZ,SJLTZ,BPS,MGJYXJJE,XSMLL,YSHZ,SJLHZ")
+    parts = []
+    for p in pd.date_range("2012-12-31", "2023-12-31", freq="QE"):
+        rows = em_report("RPT_LICO_FN_CPD", f"(REPORTDATE='{p.date()}')", sort="SECURITY_CODE", columns=cols)
+        parts.append(pd.DataFrame(rows))
+        print("fin", p.date(), len(rows), flush=True)
+    df = pd.concat(parts, ignore_index=True)
+    df.columns = [c.lower() for c in df.columns]
+    df = df.rename(columns={"security_code": "code6", "reportdate": "period", "notice_date": "notice_date"})
+    for c in ("period", "notice_date", "update_date"):
+        df[c] = pd.to_datetime(df[c], errors="coerce")
+    n_test = int((df["notice_date"] > END).sum())
+    df = df[df["notice_date"] <= END].copy()
+    df["avail_date"] = df["notice_date"].dt.normalize()
+    save_df(df, OUT / "fin.parquet")
+    log_download("events/fin", "东方财富 业绩报表 RPT_LICO_FN_CPD（按报告期）", "报告期 2012Q4~2023Q4", len(df), t0,
+                 note=f"avail_date = 首次公告日 NOTICE_DATE；丢弃测试期公告 {n_test} 条；数值可能为最新追溯口径")
+    if n_test:
+        log_test_access(f"下载业绩报表时接口返回 {n_test} 条 2024 年以后公告的记录，保存前丢弃", "业绩报表元数据（未保存、未计算统计）")
+
+
+def yysj():
+    """定期报告预约披露时间（东方财富，AKShare stock_yysj_em，按报告期）。只用"首次预约时间"。
+    时点：交易所在报告期末前后公布首次预约日程；保守起见 avail_date = 报告期末 + 7 天。变更日期何时公布未知，不使用。
+    报告期 2013Q2 ~ 2023Q3（2023 年报的预约在 2023-12 末公布，首次预约日落在 2024 年，丢弃）。"""
+    import akshare as ak
+    t0 = time.time()
+    parts = []
+    for p in pd.date_range("2013-06-30", "2023-09-30", freq="QE"):
+        df = retry(lambda: ak.stock_yysj_em(symbol="沪深A股", date=p.strftime("%Y%m%d")))
+        if df is None or not len(df):
+            continue
+        df = df.rename(columns={"股票代码": "code6", "首次预约时间": "first_sched", "实际披露时间": "actual"})
+        df = df[["code6", "first_sched", "actual"]].copy()
+        df["period"] = p
+        parts.append(df.drop(columns=["actual"]))
+        print("yysj", p.date(), len(df), flush=True)
+    df = pd.concat(parts, ignore_index=True)
+    df["first_sched"] = pd.to_datetime(df["first_sched"], errors="coerce")
+    df["avail_date"] = df["period"] + pd.Timedelta(days=7)
+    df = df[df["first_sched"] <= END]
+    save_df(df, OUT / "yysj.parquet")
+    log_download("events/yysj", "东方财富 预约披露时间（AKShare stock_yysj_em）", "报告期 2013Q2~2023Q3", len(df), t0,
+                 note="只保留首次预约时间；avail_date = 报告期末 + 7 天；不保存实际披露时间与变更日期")
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for job in sys.argv[1:] or ["lhb", "dzjy", "buyback"]:
         {"lhb": lhb, "dzjy": dzjy, "buyback": buyback, "jgdy": jgdy, "yjyg": yjyg,
          "zengchi": lambda: buyback("增持", "zengchi"), "jgdy_slow": jgdy_slow,
-         "gdhs": gdhs, "reports": reports, "unlock": unlock}[job]()
+         "gdhs": gdhs, "reports": reports, "unlock": unlock, "fin": fin, "yysj": yysj}[job]()

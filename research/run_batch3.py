@@ -12,10 +12,12 @@ EV = ROOT / "data" / "events"
 EVENTS = {"buyback": "buyback.parquet", "yjyg": "yjyg.parquet", "zengchi": "zengchi.parquet",
           "lhb": "lhb_jg.parquet", "dzjy": "dzjy.parquet", "gdhs": "gdhs.parquet"}
 EVENTS_PLUS = dict(EVENTS, reports="reports.parquet", unlock="unlock.parquet")
+EVENTS_FIN = dict(EVENTS, fin="fin.parquet")
 
 
 def load_ext(md, plus=False):
-    ext = {k: pd.read_parquet(EV / v) for k, v in (EVENTS_PLUS if plus else EVENTS).items()}
+    src = EVENTS_FIN if plus == "fin" else (EVENTS_PLUS if plus else EVENTS)
+    ext = {k: pd.read_parquet(EV / v) for k, v in src.items()}
     if "unlock" in ext:
         ext["unlock"] = ml.unlock_ext(md, ext["unlock"])
     return ext
@@ -31,6 +33,10 @@ SPECS = {
     ("H28", "base"): dict(H=10, use_events=True, hold=10, model="rank"),
     ("H30", "base"): dict(H=10, use_events=True, hold=10, rank_inputs=True),
     ("H27", "s11"): dict(H=20, use_events=True, hold=10, seeds=(11,)),
+    ("H31", "base"): dict(H=20, use_events=True, hold=10, plus="fin"),
+    ("H32", "base"): dict(H=40, use_events=True, hold=10, plus="fin"),
+    ("H33", "base"): dict(H=20, use_events=True, hold=10, plus="fin", regime=True),
+    ("H34", "base"): dict(H=20, use_events=True, hold=10, plus="fin", ensemble=True),
     ("H27", "s13"): dict(H=20, use_events=True, hold=10, seeds=(13,)),
 }
 LEAK_RANGE = None
@@ -47,10 +53,11 @@ def main(items):
         ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
         t0 = time.time()
         extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs") if k in sp}
-        fac = ml.factory(H=sp["H"], use_events=sp["use_events"], last_year=2020, **extra)
-        leak_fac = ml.factory(H=sp["H"], use_events=sp["use_events"], max_year=2017, last_year=2017, **extra)
+        mk = ml.ensemble_factory if sp.get("ensemble") else ml.factory
+        fac = mk(H=sp["H"], use_events=sp["use_events"], last_year=2020, **extra)
+        leak_fac = mk(H=sp["H"], use_events=sp["use_events"], max_year=2017, last_year=2017, **extra)
         rr = lab.run(hyp, var, fac, split="train", ext=ext, start="2016-01-01", leak_factory=leak_fac,
-                     leak_t_range=(t_lo, t_hi), params={"H": sp["H"], "model": "lgbm-fixed"},
+                     leak_t_range=(t_lo, t_hi), leak_truncate="2018-12-31", params={"H": sp["H"], "model": "lgbm-fixed"},
                      n_target=10, renew=True, hold_days=sp["hold"])
         r, st = rr.row, rr.stats
         print(f"{hyp}/{var}: 年化 {r['cagr']:+.1%}  超额 {r['excess_cagr']:+.1%}  回撤 {r['max_drawdown']:.1%}  "

@@ -85,6 +85,11 @@ def peer_sets(md, k=20, window=250, min_obs=200) -> tuple[np.ndarray, np.ndarray
         w = r[tm - window + 1: tm + 1]
         obs = np.isfinite(w).sum(0)
         ok = obs >= min_obs
+        if ok.sum() < k + 1:                          # 有效股票太少（例如前视检测扰动后的数据），本期不设同伴
+            batches.append(np.full((md.N, k), -1, dtype=np.int64))
+            end = starts[bi + 1] if bi + 1 < len(starts) else md.T
+            batch_of_t[tm:end] = bi
+            continue
         x = w[:, ok]
         mu = np.nanmean(x, 0)
         sd = np.nanstd(x, 0)

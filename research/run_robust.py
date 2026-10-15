@@ -19,12 +19,13 @@ def main(hyp, base_var):
     extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs") if k in sp}
     lab = Lab()
     md = lab.md
-    fac = ml.factory(H=H, use_events=use_events, last_year=2020, **extra)
-    leak_fac = ml.factory(H=H, use_events=use_events, max_year=2017, last_year=2017, **extra)
+    mk = ml.ensemble_factory if sp.get("ensemble") else ml.factory
+    fac = mk(H=H, use_events=use_events, last_year=2020, **extra)
+    leak_fac = mk(H=H, use_events=use_events, max_year=2017, last_year=2017, **extra)
     t_lo = int(md.dates.searchsorted(pd.Timestamp("2016-02-01")))
     t_hi = int(md.dates.searchsorted(pd.Timestamp("2017-12-01")))
     ext = load_ext(md, sp.get("plus", False)) if use_events else None
-    lk = leak_test(md, leak_fac, ext, t_range=(t_lo, t_hi))
+    lk = leak_test(md, leak_fac, ext, t_range=(t_lo, t_hi), truncate="2018-12-31")
     print("前视检测", lk, flush=True)
     strat = fac(md, ext)
     for v, kw in VARS.items():

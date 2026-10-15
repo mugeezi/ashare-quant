@@ -316,3 +316,80 @@ def f24_peer_info_transfer(md, ext, W=10):
     with np.errstate(invalid="ignore", divide="ignore"):
         r10 = C / lag(C, 10) - 1
     return np.where(~own60 & (frac >= 0.15) & (r10 < 0.1), frac, np.nan)
+
+
+# ================================================================ 第七批：基本面与换手结构
+def _fund(md, ext):
+    from fundamentals import fundamental_features
+    return dict(fundamental_features(md, ext))
+
+
+# G01 业绩超预告：正式财报归母净利润高于本公司此前业绩预告的预测值 ≥ 10%（A 股强制预告制度特有）
+def g01_beat_own_guidance(md, fd):
+    s = fd["fc_surprise"]
+    fresh = fd["days_since_report"] <= 20
+    return np.where(fresh & (s >= 0.10), s, np.nan)
+
+
+# G02 相对自身历史便宜 + 业绩加速
+def g02_self_cheap_accel(md, fd):
+    ok = (fd["ep_self_pct"] >= 0.8) & (fd["ni_yoy"] > 20) & (fd["ep_ttm"] > 0)
+    return np.where(ok, fd["ep_self_pct"] + fd["ni_yoy"] / 1000, np.nan)
+
+
+# G03 同伴相对低估 + 盈利质量：比 PIT 相关性同伴便宜，ROE（年化）> 8%
+def g03_peer_cheap_quality(md, fd):
+    ok = (fd["roe_ann"] > 8) & (fd["ep_ttm"] > 0)
+    return np.where(ok, fd["ep_peer_rel"], np.nan)
+
+
+# G04 毛利率改善尚未被定价：毛利率同比提升 ≥ 2 个百分点，财报后 20 日内股价涨幅 < 5%
+def g04_margin_unpriced(md, fd):
+    C = hfq(md, "close")
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r20 = C / lag(C, 20) - 1
+    ok = (fd["gm_chg"] >= 2) & (fd["days_since_report"] <= 40) & (r20 < 0.05)
+    return np.where(ok, fd["gm_chg"], np.nan)
+
+
+# G05 换手平稳度：60 日换手中最大 5 天占比低（成交平稳，没有脉冲式炒作），且 60 日价格为正
+def g05_turnover_steady(md):
+    a = md.a
+    turn = np.where(a["tradestatus"] == 1, a["turn"].astype(float), np.nan)
+    tot = _roll(turn, 60, "sum", 40)
+    from numpy.lib.stride_tricks import sliding_window_view
+    top5 = np.full(turn.shape, np.nan)
+    z = np.nan_to_num(turn)
+    for c0 in range(0, turn.shape[1], 300):                  # 分块，控制内存；窗口 [t−59, t]
+        w = sliding_window_view(z[:, c0:c0 + 300], 60, axis=0)          # (T−59, n, 60)
+        part = np.partition(w, 55, axis=2)[:, :, 55:].sum(axis=2)
+        top5[59:, c0:c0 + 300] = part
+    C = hfq(md, "close")
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r60 = C / lag(C, 60) - 1
+        share = top5 / tot
+    return np.where(r60 > 0, -share, np.nan)
+
+
+# G06 现金含量高的增长：每股经营现金流 / 每股收益 > 1.2，净利润同比 > 0，E/P > 0
+def g06_cash_backed_growth(md, fd):
+    ok = (fd["cfo_ratio"] > 1.2) & (fd["ni_yoy"] > 0) & (fd["ep_ttm"] > 0) & (fd["days_since_report"] <= 60)
+    return np.where(ok, fd["cfo_ratio"] + fd["ni_yoy"] / 100, np.nan)
+
+
+# G07 早预约：首次预约披露日在同一报告期内排在最早 30% 的公司，在其预约日前 10 个交易日内买入（好消息倾向早披露）
+def g07_early_schedule(md, ext, pct=0.3, lead=10):
+    df = ext["yysj"].copy()
+    df["rk"] = df.groupby("period")["first_sched"].rank(pct=True)
+    df = df[df["rk"] <= pct]
+    cm = {c.split(".")[1]: i for i, c in enumerate(md.codes)}
+    s = np.full((md.T, md.N), np.nan)
+    for c6, av, sd, rk in zip(df["code6"].astype(str).str.zfill(6), df["avail_date"], df["first_sched"], df["rk"]):
+        j = cm.get(c6)
+        if j is None or pd.isna(sd):
+            continue
+        ta = int(md.dates.searchsorted(av))                     # 首次预约日程公开（保守）之后
+        td = int(md.dates.searchsorted(sd))                     # 预约披露日
+        for k in range(max(ta, td - lead), min(td, md.T)):
+            s[k, j] = 1 - rk
+    return s

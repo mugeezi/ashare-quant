@@ -133,10 +133,22 @@ def _perturb_ext(ext: dict | None, cut_date, rng) -> dict | None:
     return out
 
 
+def truncate_md(md: MarketData, end) -> MarketData:
+    """截到 end（含）为止的视图（不复制数组），用于前视检测时节省内存。"""
+    t1 = int(md.dates.searchsorted(pd.Timestamp(end), side="right"))
+    m2 = MarketData(dates=md.dates[:t1], codes=md.codes, a={k: v[:t1] for k, v in md.a.items()})
+    m2.universe, m2.exits, m2.index_close = md.universe, md.exits, md.index_close.iloc[:t1]
+    return m2
+
+
 def leak_test(md: MarketData, factory, ext: dict | None = None, cuts: int = 3, lags=(0, 1, 3), seed: int = 0,
-              t_range=None) -> dict:
+              t_range=None, truncate=None) -> dict:
     """扩展前视检测：在随机切点 t* 之后扰动全部字段（价格、量额、换手、复权因子、交易状态、ST 与涨跌停标记、
-    指数、退市日期）及全部外部数据，重建策略，比较 t*−lag 日的信号排名。全部一致才算通过。"""
+    指数、退市日期）及全部外部数据，重建策略，比较 t*−lag 日的信号排名。全部一致才算通过。
+    truncate：先把行情截到该日期（切点必须在其之前），扰动的仍是切点之后的全部数据，只是少复制无关年份以省内存。"""
+    import gc
+    if truncate is not None:
+        md = truncate_md(md, truncate)
     rng = np.random.default_rng(seed)
     lo, hi = t_range or (300, md.T - 30)
     cut_ts = rng.choice(np.arange(lo, hi), cuts, replace=False)
@@ -152,7 +164,8 @@ def leak_test(md: MarketData, factory, ext: dict | None = None, cuts: int = 3, l
             r2 = np.asarray(s2.select(t, View(md2, t)))
             if not np.array_equal(r1, r2):
                 changed.append(str(md.dates[t].date()))
-        del md2
+        del md2, s2, ext2
+        gc.collect()
     return {"passed": not changed, "n_checks": cuts * len(lags), "changed": changed}
 
 
@@ -272,7 +285,7 @@ class Lab:
 
     def run(self, hyp: str, variant: str, factory, split: str = "train", ext: dict | None = None,
             params: dict | None = None, notes: str = "", reason: str | None = None, start: str | None = None,
-            leak_factory=None, leak_t_range=None, strategy=None, **cfg_kw) -> RunResult:
+            leak_factory=None, leak_t_range=None, strategy=None, leak_truncate=None, **cfg_kw) -> RunResult:
         """start：训练集内可推迟起点（如滚动训练的模型需要预热），只能落在该数据集区间内；
         正超额年份门槛按年数等比例折算（训练集 4/7）。leak_factory / leak_t_range：前视检测用的轻量版工厂
         与切点范围（机器学习模型重训很慢时使用，必须与正式工厂是同一套代码）。strategy：已构建好的策略对象，
@@ -288,7 +301,10 @@ class Lab:
                 raise PermissionError(f"{hyp} 已经用过验证集；再次使用必须给出 reason 并在 hypotheses.md 说明")
         key = (hyp, variant)
         if key not in self._leak_cache:
-            self._leak_cache[key] = leak_test(self.md, leak_factory or factory, ext, t_range=leak_t_range)
+            self._leak_cache[key] = leak_test(self.md, leak_factory or factory, ext, t_range=leak_t_range,
+                                              truncate=leak_truncate)
+            import gc
+            gc.collect()
         lk = self._leak_cache[key]
         if not lk["passed"]:
             raise RuntimeError(f"{hyp}/{variant} 前视检测未通过：{lk['changed']}")

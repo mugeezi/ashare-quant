@@ -168,6 +168,9 @@ def event_features(md, ext: dict):
             f["unlock_next"] = (up / fs).astype(F32)
             f["unlock_past10"] = (past / fs).astype(F32)
     yield from f.items()
+    if "fin" in ext:
+        from fundamentals import fundamental_features
+        yield from fundamental_features(md, ext)
 
 
 def build(md, ext: dict | None = None):
