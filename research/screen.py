@@ -44,7 +44,8 @@ class Screener:
         self.t1 = int(md.dates.searchsorted(pd.Timestamp(end), side="right")) - 1
         self.bench = md.index_close["zzqz"]
 
-    def evaluate(self, score: np.ndarray, H: int = 10, n: int = 10, start=None):
+    def evaluate(self, score: np.ndarray, H: int = 10, n: int = 10, start=None, exposure=None):
+        """exposure：每日目标仓位比例（T 长度，0–1），用于仓位控制类规则；None 表示满仓。"""
         md = self.md
         t0 = self.t0 if start is None else int(md.dates.searchsorted(pd.Timestamp(start)))
         sub_nav = np.ones(H)
@@ -62,6 +63,11 @@ class Screener:
             r = self.nxt[t + 1 + H, sel] / self.O[t + 1, sel] - 1 if len(sel) else np.array([])
             r = np.where(np.isfinite(r), r, -1.0)                      # 缺价（退市）按 −100%
             w = len(sel) / n                                           # 不足 n 只的部分空仓
+            if exposure is not None:
+                k_max = int(round(n * exposure[t]))
+                sel = sel[:k_max]
+                w = len(sel) / n
+                r = r[:k_max]
             gross = r.mean() * w if len(sel) else 0.0
             new = set(sel.tolist())
             changed = len(new - prev[k]) / n
@@ -90,9 +96,9 @@ class Screener:
                     alpha=float(coef[0] * DAYS), beta=float(coef[1]), sharpe_daily=float(e.mean() / e.std()),
                     avg_hold=float(np.mean(n_hold)), turnover=float(np.mean(turn) * DAYS / H))
 
-    def run(self, hyp, variant, score, H=10, n=10, notes="", start=None):
+    def run(self, hyp, variant, score, H=10, n=10, notes="", start=None, exposure=None):
         t = time.time()
-        st = self.evaluate(score, H=H, n=n, start=start)
+        st = self.evaluate(score, H=H, n=n, start=start, exposure=exposure)
         self.lab.log_trial(hyp, f"screen:{variant}", "train", {"H": H, "n": n, "start": start or "2014-01-01"}, notes,
                            cagr=round(st["cagr"], 4), excess_cagr=round(st["excess_cagr"], 4),
                            sharpe_daily=round(st["sharpe_daily"], 5), max_drawdown=round(st["max_drawdown"], 4),

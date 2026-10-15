@@ -36,6 +36,10 @@ SPECS = {
     ("H31", "base"): dict(H=20, use_events=True, hold=10, plus="fin"),
     ("H32", "base"): dict(H=40, use_events=True, hold=10, plus="fin"),
     ("H33", "base"): dict(H=20, use_events=True, hold=10, plus="fin", regime=True),
+    ("S05", "base"): dict(H=20, use_events=True, hold=10, plus="fin", model="tree", rank_inputs=True,
+                          keep={k for k, _ in __import__("families").SCORECARD}),
+    ("S06", "base"): dict(H=20, use_events=True, hold=10, plus="fin", model="small",
+                          keep={k for k, _ in __import__("families").SCORECARD}),
     ("H34", "base"): dict(H=20, use_events=True, hold=10, plus="fin", ensemble=True),
     ("H27", "s13"): dict(H=20, use_events=True, hold=10, seeds=(13,)),
 }

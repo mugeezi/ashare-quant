@@ -393,3 +393,192 @@ def g07_early_schedule(md, ext, pct=0.3, lead=10):
         for k in range(max(ta, td - lead), min(td, md.T)):
             s[k, j] = 1 - rk
     return s
+
+
+# ================================================================ 第九批：经验规则型（趋势、回踩、突破、反转），中等复杂度
+def _ma(x, w):
+    return _roll(x, w, "mean", w)
+
+
+def _base(md):
+    a = md.a
+    C = hfq(md, "close")
+    amt = np.where(a["tradestatus"] == 1, a["amount"].astype(float), np.nan)
+    return a, C, amt
+
+
+# T01 上升趋势中缩量回踩 20 日线：MA20 > MA60 且 MA60 向上，收盘在 MA20 ±2% 内，5 日均额 < 0.7 × 20 日均额
+def t01_trend_pullback(md):
+    a, C, amt = _base(md)
+    m20, m60 = _ma(C, 20), _ma(C, 60)
+    up = (m20 > m60) & (m60 > lag(m60, 20)) & (C > m60)
+    near = np.abs(C / m20 - 1) <= 0.02
+    shrink = _roll(amt, 5) < 0.7 * _roll(amt, 20)
+    slope = m60 / lag(m60, 20) - 1
+    return np.where(up & near & shrink, slope, np.nan)
+
+
+# T02 平台突破：收盘创 60 日新高，突破前 60 日振幅（最高/最低−1）< 30%，当日成交额 ≥ 1.5 × 20 日均额，非涨停
+def t02_box_breakout(md):
+    a, C, amt = _base(md)
+    hi60 = lag(_roll(C, 60, "max"), 1)
+    lo60 = lag(_roll(C, 60, "min"), 1)
+    tight = hi60 / lo60 - 1
+    brk = (C > hi60) & (tight < 0.30) & (amt >= 1.5 * _roll(amt, 20)) & ~limit_up_close(md)
+    return np.where(brk, -tight, np.nan)
+
+
+# T03 底部反转：120 日跌幅 ≥ 30%，近 3 日内 5 日线上穿 20 日线，5 日均额 > 1.2 × 20 日均额
+def t03_bottom_reversal(md):
+    a, C, amt = _base(md)
+    r120 = C / lag(C, 120) - 1
+    m5, m20 = _ma(C, 5), _ma(C, 20)
+    cross = (m5 > m20) & (lag(m5, 1) <= lag(m20, 1))
+    recent = _roll(cross.astype(float), 3, "sum", 1) > 0
+    vol_up = _roll(amt, 5) > 1.2 * _roll(amt, 20)
+    return np.where((r120 <= -0.30) & recent & vol_up & (m5 > m20), -r120, np.nan)
+
+
+# T04 强势股短暂回调：60 日涨幅处于截面前 20%，近 5 日回调 3%–10%，10 日内无跌停
+def t04_strong_pullback(md, el=None):
+    a, C, amt = _base(md)
+    r60 = C / lag(C, 60) - 1
+    r5 = C / lag(C, 5) - 1
+    rk = _xrank(np.where(el, r60, np.nan) if el is not None else r60)
+    ld = (a["tradestatus"] == 1) & (a["no_limit"] == 0) & (a["close"] <= a["down_limit"] + TOL)
+    no_ld = _roll(ld.astype(float), 10, "sum", 1) == 0
+    ok = (rk >= 0.8) & (r5 <= -0.03) & (r5 >= -0.10) & no_ld
+    return np.where(ok, rk - r5, np.nan)
+
+
+# T05 稳健上升趋势：收盘在 20、60 日线之上且两线都向上，按 20 日波动从低到高排序
+def t05_smooth_trend(md):
+    a, C, amt = _base(md)
+    m20, m60 = _ma(C, 20), _ma(C, 60)
+    up = (C > m20) & (m20 > m60) & (m20 > lag(m20, 5)) & (m60 > lag(m60, 20))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        lr = np.log(C / lag(C, 1))
+    v20 = _roll(lr, 20, "std")
+    return np.where(up, -v20, np.nan)
+
+
+# T06 周线向上、日线回调：20 日线连续 20 日上升（周线级别上升），近 3 日累计下跌 ≥ 3%
+def t06_weekly_up_daily_dip(md):
+    a, C, amt = _base(md)
+    m20 = _ma(C, 20)
+    rising = _roll((m20 > lag(m20, 1)).astype(float), 20, "sum", 20) >= 18
+    r3 = C / lag(C, 3) - 1
+    return np.where(rising & (r3 <= -0.03) & (C > _ma(C, 60)), -r3, np.nan)
+
+
+def market_uptrend(md, w=60):
+    """中证全指收盘在 w 日均线之上（只用当日及以前）。"""
+    c = md.index_close["zzqz"].ffill().values
+    ma = pd.Series(c).rolling(w, min_periods=w).mean().values
+    return c > ma
+
+
+# T08 市场状态切换：大盘在 60 日线上方时用 T04（强势回调），下方时用 T05（稳健趋势），两边都满足条件的股票才入选
+def t08_regime_switch(md, el):
+    up = market_uptrend(md)[:, None]
+    return np.where(up, t04_strong_pullback(md, el), t05_smooth_trend(md))
+
+
+# ================================================================ 逆势型经验规则（事后）
+def r01_oversold_dryup(md, el):
+    a, C, amt = _base(md)
+    r20 = C / lag(C, 20) - 1
+    ld = (a["tradestatus"] == 1) & (a["no_limit"] == 0) & (a["close"] <= a["down_limit"] + TOL)
+    no_ld = _roll(ld.astype(float), 3, "sum", 1) == 0
+    big = _xrank(np.where(el, a["fmv"], np.nan)) >= 0.5
+    ok = (r20 <= -0.15) & (_roll(amt, 5) < 0.7 * _roll(amt, 20)) & no_ld & big
+    return np.where(ok, -r20, np.nan)
+
+
+def r02_long_up_short_down(md):
+    a, C, amt = _base(md)
+    m250, m60 = _roll(C, 250, "mean", 200), _ma(C, 60)
+    ok = (m250 > lag(m250, 20)) & (C / m60 - 1 <= -0.15)
+    return np.where(ok, -(C / m60 - 1), np.nan)
+
+
+def r03_down_streak_dryup(md):
+    a, C, amt = _base(md)
+    down = (a["close"] < a["open"]) & (a["tradestatus"] == 1)
+    streak = _roll(down.astype(float), 5, "sum", 5) == 5
+    dec = _roll((amt < lag(amt, 1)).astype(float), 4, "sum", 4) >= 3
+    r5 = C / lag(C, 5) - 1
+    return np.where(streak & dec, -r5, np.nan)
+
+
+def r04_panic_buy(md, el, W=3):
+    a, C, amt = _base(md)
+    m = md.index_close["zzqz"].ffill().values
+    mret = np.r_[np.nan, m[1:] / m[:-1] - 1]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r1 = a["close"] / a["preclose"] - 1
+    breadth = np.nanmean(np.where(el, r1 < 0, np.nan), axis=1)
+    panic = (mret <= -0.02) & (breadth >= 0.8)
+    big = _xrank(np.where(el, a["fmv"], np.nan)) >= 0.5
+    s = np.full((md.T, md.N), np.nan)
+    for t in np.where(panic)[0]:
+        sc = np.where(big[t] & el[t], -r1[t], np.nan)
+        for k in range(t, min(t + W, md.T)):
+            s[k] = np.where(np.isfinite(sc), sc, s[k])
+    return s
+
+
+def r05_floor_volume(md, el):
+    a, C, amt = _base(md)
+    r60 = C / lag(C, 60) - 1
+    weak = _xrank(np.where(el, r60, np.nan)) <= 0.2
+    turn = np.where(a["tradestatus"] == 1, a["turn"].astype(float), np.nan)
+    pct = pd.DataFrame(turn).rolling(120, min_periods=100).rank(pct=True).values
+    return np.where(weak & (pct <= 0.1), -r60, np.nan)
+
+
+# ================================================================ 第十批：打分卡
+SCORECARD = [("n_touchu20", -1), ("days_since_lu", 1), ("max20", -1), ("turn20", -1), ("gap20", -1), ("in20", -1),
+             ("ma60", -1), ("ep_self_pct", 1), ("ep_ttm", 1), ("gm_chg", 1), ("fc_surprise", 1), ("ni_yoy", 1)]
+PILLARS = {"anti_hype": ["n_touchu20", "days_since_lu", "max20", "turn20", "gap20", "in20", "ma60"],
+           "cheap": ["ep_self_pct", "ep_ttm"], "improve": ["gm_chg", "fc_surprise", "ni_yoy"]}
+
+
+def scorecard(md, ext, el):
+    """返回 (S01 等权打分, S03 三支柱打分)。逐个特征累加，控制内存。"""
+    import gc
+    import features as FE
+    want = dict(SCORECARD)
+    tot = np.zeros((md.T, md.N), np.float32)
+    pil = {p: np.zeros((md.T, md.N), np.float32) for p in PILLARS}
+    for name, arr in FE.build(md, ext):
+        if name not in want:
+            del arr
+            continue
+        r = _xrank(np.where(el, arr * want[name], np.nan)).astype(np.float32)
+        r = np.where(np.isfinite(r), r, np.float32(0.5))            # 缺失记中性
+        del arr
+        tot += r
+        for p, v in PILLARS.items():
+            if name in v:
+                pil[p] += r / len(v)
+        del r
+        gc.collect()
+    s1 = np.where(el, tot / len(want), np.nan)
+    s3 = np.where(el, sum(pil.values()) / len(pil), np.nan)
+    return s1, s3
+
+
+def s04_filter_then_rank(md, ext, el):
+    import features as FE
+    need = {"n_touchu20", "turn20", "max20", "gm_chg", "fc_surprise", "ni_yoy"}
+    v = {}
+    for name, arr in FE.build(md, ext):
+        if name in need:
+            v[name] = arr
+        else:
+            del arr
+    hype = (v["n_touchu20"] > 0) | (_xrank(np.where(el, v["turn20"], np.nan)) >= 0.7) | \
+           (_xrank(np.where(el, v["max20"], np.nan)) >= 0.7)
+    imp = [np.where(np.isfinite(r), r, 0.5) for r in (_xrank(np.where(el, v[k], np.nan)) for k in ("gm_chg", "fc_surprise", "ni_yoy"))]
+    return np.where(el & ~hype, np.mean(imp, axis=0), np.nan)

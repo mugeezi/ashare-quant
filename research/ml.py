@@ -95,6 +95,17 @@ def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, str
             from sklearn.linear_model import Ridge
             m = Ridge(alpha=1000.0).fit(X[tr] - 0.5, y[tr])
             pred = m.predict(X[pr] - 0.5)
+        elif model == "tree":
+            from sklearn.tree import DecisionTreeRegressor
+            Xt = np.nan_to_num(X[tr], nan=0.5)
+            m = DecisionTreeRegressor(max_depth=4, min_samples_leaf=20000, random_state=0).fit(Xt, y[tr])
+            pred = m.predict(np.nan_to_num(X[pr], nan=0.5))
+        elif model == "small":
+            for sd in seeds:
+                m = lgb.train(dict(PARAMS, seed=sd, num_leaves=7, min_data_in_leaf=5000),
+                              lgb.Dataset(X[tr], y[tr], feature_name=names), 100)
+                pred += m.predict(X[pr], num_threads=2) / len(seeds)
+                del m
         elif model == "rank":
             idx = np.where(tr)[0]
             idx = idx[np.argsort(ti[idx], kind="stable")]
