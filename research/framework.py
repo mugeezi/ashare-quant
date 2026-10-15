@@ -114,6 +114,18 @@ def _perturb_ext(ext: dict | None, cut_date, rng) -> dict | None:
         return ext
     out = {}
     for name, df in ext.items():
+        if isinstance(df, dict):                         # 矩阵型外部数据（如融资融券）：扰动 cut 之后的行
+            dts = pd.to_datetime(df["_dates"])
+            m = np.asarray(dts > cut_date)
+            nd = {"_dates": df["_dates"]}
+            for k, v in df.items():
+                if k == "_dates":
+                    continue
+                v = np.array(v, dtype=np.float32, copy=True)
+                v[m] = v[m] * rng.uniform(0.5, 1.5, size=v[m].shape).astype(np.float32)
+                nd[k] = v
+            out[name] = nd
+            continue
         df = df.copy()
         m = pd.to_datetime(df["avail_date"]) > cut_date
         n = int(m.sum())

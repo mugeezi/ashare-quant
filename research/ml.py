@@ -52,16 +52,20 @@ def make_panel(md, ext, H, max_year=None, keep=None, rank_inputs=False):
     if max_year is not None:                                 # 只保留到 max_year 年末（前视检测用的轻量版）
         el[int(md.dates.searchsorted(pd.Timestamp(f"{max_year + 1}-01-01"))):] = False
     ti, ji = np.where(el)
-    names, cols = [], []
+    names = []
+    cap = 96
+    X = np.empty((len(ti), cap), dtype=np.float32, order="F")   # 列优先预分配：未用到的列不占物理内存
     for name, arr in FE.build(md, ext):
         if keep is not None and name not in keep:
             del arr
             continue
+        if len(names) == cap:
+            raise RuntimeError("特征数超过预分配上限")
+        X[:, len(names)] = arr[ti, ji]
         names.append(name)
-        cols.append(arr[ti, ji].astype(np.float32))
         del arr
-    X = np.column_stack(cols)
-    del cols
+        gc.collect()
+    X = X[:, :len(names)]                                    # 视图，不复制
     gc.collect()
     if rank_inputs:
         X = _rank_inputs(X, ti)
@@ -76,17 +80,52 @@ def make_panel(md, ext, H, max_year=None, keep=None, rank_inputs=False):
 
 
 def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, stride=2, max_year=None, keep=None,
-                        seeds=(7,), model="lgbm", rank_inputs=False):
+                        seeds=(7,), model="lgbm", rank_inputs=False, window_years=None, label="rank", free_md=False,
+                        universe="all"):
     """model：lgbm（回归）| rank（LightGBM lambdarank，标签按截面分成 5 档，偏重前排）| ridge（线性，需 rank_inputs）。"""
     names, X, y, ti, ji = make_panel(md, ext, H, max_year=max_year, keep=keep, rank_inputs=rank_inputs or model == "ridge")
-    score = np.full((md.T, md.N), np.nan)
+    if label == "riskadj":                                   # 风险调整标签：收益 / 过去 20 日波动，再转截面分位
+        vi = names.index("vol20")
+        O = hfq(md, "open")
+        fwd = np.full(len(ti), np.nan)
+        ok = ti + 1 + H < md.T
+        with np.errstate(invalid="ignore", divide="ignore"):
+            fwd[ok] = (O[ti[ok] + 1 + H, ji[ok]] / O[ti[ok] + 1, ji[ok]] - 1) / np.maximum(X[ok, vi], 0.005)
+        y = pd.Series(fwd).groupby(ti).rank(pct=True).values - 0.5
+    if label == "sizeneutral":                              # 标签在当日流通市值五分组内做截面分位，剥离市值效应
+        vi = names.index("log_fmv")
+        O = hfq(md, "open")
+        fwd = np.full(len(ti), np.nan)
+        ok = ti + 1 + H < md.T
+        with np.errstate(invalid="ignore", divide="ignore"):
+            fwd[ok] = O[ti[ok] + 1 + H, ji[ok]] / O[ti[ok] + 1, ji[ok]] - 1
+        dfl = pd.DataFrame({"t": ti, "s": X[:, vi], "f": fwd})
+        dfl["q"] = dfl.groupby("t")["s"].rank(pct=True).mul(5).clip(upper=4.999).fillna(2).astype(int)
+        y = dfl.groupby(["t", "q"])["f"].rank(pct=True).values - 0.5
+        del dfl
+    if label == "top10":                                    # 二分类：是否进入当日截面前 10%
+        y = np.where(np.isfinite(y), (y >= 0.4).astype(float), np.nan)
+    if universe == "large":                                  # 只在当日流通市值前 50% 的股票中训练和选股
+        vi = names.index("log_fmv")
+        big = pd.Series(X[:, vi]).groupby(ti).rank(pct=True).values >= 0.5
+        y = np.where(big, y, np.nan)
+    else:
+        big = None
+    T, N = md.T, md.N
+    if free_md:                                              # 仅供单独打分进程使用：面板建好后释放行情数组，省内存
+        md.a.clear()
+        md.__dict__.pop("_peer_cache", None)
+        gc.collect()
+    score = np.full((T, N), np.nan)
     years = md.dates.year.values
     last = min(last_year, max_year or last_year, int(years.max()))
     for Y in range(first_year, last + 1):
         tY = int(np.searchsorted(years, Y))                 # Y 年第一个交易日
-        if tY >= md.T:
+        if tY >= T:
             break
         tr = (ti + 1 + H < tY) & np.isfinite(y) & (ti % stride == 0)
+        if window_years:                                      # 滚动窗口：只用最近 window_years 年的样本
+            tr &= ti >= tY - int(242 * window_years)
         pr = years[ti] == Y
         if tr.sum() < 10000 or not pr.any():
             continue
@@ -118,11 +157,14 @@ def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, str
                 pred += m.predict(X[pr], num_threads=2) / len(seeds)
                 del m
         else:
+            prm = dict(PARAMS, objective="binary") if label == "top10" else PARAMS
             for sd in seeds:                                   # 多个随机种子取平均（集成）
-                m = lgb.train(dict(PARAMS, seed=sd), lgb.Dataset(X[tr], y[tr], feature_name=names, free_raw_data=True),
+                m = lgb.train(dict(prm, seed=sd), lgb.Dataset(X[tr], y[tr], feature_name=names, free_raw_data=True),
                               N_ROUNDS)
                 pred += m.predict(X[pr], num_threads=2) / len(seeds)
                 del m
+        if big is not None:
+            pred = np.where(big[pr], pred, np.nan)
         score[ti[pr], ji[pr]] = pred
         gc.collect()
     return score
@@ -160,13 +202,59 @@ def unlock_ext(md, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+class DiversifiedRegimeStrategy(RegimeStrategy):
+    """在 H42 的排序上做分散：按得分依次挑选，若某只股票的 PIT 相关性同伴（20 只）中已有 2 只被选中，就跳过。"""
+
+    def __init__(self, score, md, max_peers=2):
+        super().__init__(score)
+        from signals import peer_sets
+        self.batches, self.bot = peer_sets(md)
+        self.max_peers = max_peers
+
+    def select(self, t, v):
+        order = super().select(t, v)
+        b = self.bot[t]
+        if b < 0 or not len(order):
+            return order
+        P = self.batches[b]
+        chosen, out = [], []
+        cs = set()
+        for c in order:
+            peers = set(P[c][P[c] >= 0].tolist())
+            if len(peers & cs) >= self.max_peers:
+                continue
+            out.append(c)
+            cs.add(c)
+            if len(out) >= self.top:
+                break
+        return np.array(out, dtype=int)
+
+
+class StopLossRegimeStrategy(RegimeStrategy):
+    """H42 + 止损：持仓收盘价较买入价下跌 ≥ stop 时，次日开盘卖出（只用 t 日收盘价）。"""
+
+    def __init__(self, score, stop=0.10):
+        super().__init__(score)
+        self.stop = stop
+
+    def should_exit(self, t, v, p):
+        c = v.close[-1][p.c] * v.adj_factor[-1][p.c]
+        adj0 = p.adj_entry if p.adj_entry > 0 else v.adj_factor[-1][p.c]
+        return bool(np.isfinite(c) and c / (p.entry_px * adj0) - 1 <= -self.stop)
+
+
 def factory(H=10, use_events=False, max_year=None, last_year=2020, keep=None, seeds=(7,), regime=False,
-            model="lgbm", rank_inputs=False):
+            model="lgbm", rank_inputs=False, window_years=None, label="rank", universe="all", construct=None):
     """返回 factory(md, ext)。use_events=False 时忽略外部数据（只用行情特征）。
     训练集运行时 last_year=2020：不训练、不预测验证集年份，验证集标签在验证集运行之前完全不碰。"""
     def f(md, ext):
         sc = walk_forward_scores(md, ext if use_events else None, H=H, max_year=max_year, last_year=last_year,
-                                 keep=keep, seeds=seeds, model=model, rank_inputs=rank_inputs)
+                                 keep=keep, seeds=seeds, model=model, rank_inputs=rank_inputs,
+                                 window_years=window_years, label=label, universe=universe)
+        if construct == "div":
+            return DiversifiedRegimeStrategy(sc, md)
+        if construct == "stop":
+            return StopLossRegimeStrategy(sc)
         return RegimeStrategy(sc) if regime else SignalStrategy(sc)
     return f
 
@@ -181,3 +269,69 @@ def ensemble_factory(H=20, use_events=True, max_year=None, last_year=2020, **kw)
         r = (pd.DataFrame(s27).rank(axis=1, pct=True).values + pd.DataFrame(s31).rank(axis=1, pct=True).values) / 2
         return SignalStrategy(r)
     return f
+
+
+def _labels(md, ti, ji, H):
+    O = hfq(md, "open")
+    fwd = np.full(len(ti), np.nan)
+    ok = ti + 1 + H < md.T
+    with np.errstate(invalid="ignore", divide="ignore"):
+        fwd[ok] = O[ti[ok] + 1 + H, ji[ok]] / O[ti[ok] + 1, ji[ok]] - 1
+    return pd.Series(fwd).groupby(ti).rank(pct=True).values - 0.5
+
+
+def multi_scores(md, ext, configs, first_year=2016, last_year=2023, max_year=None, stride=2):
+    """只构建一次特征面板，按多组 (特征子集, 标签周期) 分别滚动训练，返回各自的打分（省内存）。"""
+    names, X, _, ti, ji = make_panel(md, ext, 20, max_year=max_year)
+    years = md.dates.year.values
+    last = min(last_year, max_year or last_year, int(years.max()))
+    out = []
+    for cols, H in configs:
+        idx = [i for i, c in enumerate(names) if cols is None or (cols(c) if callable(cols) else c in cols)]
+        sub_names = [names[i] for i in idx]
+        y = _labels(md, ti, ji, H)
+        score = np.full((md.T, md.N), np.nan, dtype=np.float32)
+        for Y in range(first_year, last + 1):
+            tY = int(np.searchsorted(years, Y))
+            if tY >= md.T:
+                break
+            tr = (ti + 1 + H < tY) & np.isfinite(y) & (ti % stride == 0)
+            pr = years[ti] == Y
+            if tr.sum() < 10000 or not pr.any():
+                continue
+            tri, pri = np.where(tr)[0], np.where(pr)[0]
+            mdl = lgb.train(PARAMS, lgb.Dataset(X[np.ix_(tri, idx)], y[tri], feature_name=sub_names), N_ROUNDS)
+            score[ti[pri], ji[pri]] = mdl.predict(X[np.ix_(pri, idx)], num_threads=2)
+            del mdl
+            gc.collect()
+        out.append(score)
+        del y
+    del X
+    gc.collect()
+    return out
+
+
+FIN_FEATURES = {"ep_ttm", "bp", "roe_ann", "gm", "gm_chg", "cfo_ratio", "ni_yoy", "rev_yoy", "fc_surprise",
+                "ep_self_pct", "ep_peer_rel", "days_since_report"}
+
+
+def multi_factory(max_year=None, last_year=2020, regime=True, **kw):
+    """H37：三个子模型的截面百分位平均 —— H27 口径（20 日标签，不含财报特征）、H31 口径（20 日，含财报）、
+    H32 口径（40 日，含财报）。特征面板只构建一次。"""
+    def f(md, ext):
+        drop = lambda n: n not in FIN_FEATURES                      # noqa: E731
+        parts = multi_scores(md, ext, [(drop, 20), (None, 20), (None, 40)], max_year=max_year, last_year=last_year)
+        r = np.nanmean(np.stack([pd.DataFrame(p).rank(axis=1, pct=True).values.astype(np.float32) for p in parts]),
+                       axis=0)
+        return RegimeStrategy(r) if regime else SignalStrategy(r)
+    return f
+
+
+def build_strategy(sc, sp, md):
+    """由打分矩阵和登记的规格构建策略对象（缓存打分复用时使用，与 factory 的构建方式一致）。"""
+    c = sp.get("construct")
+    if c == "div":
+        return DiversifiedRegimeStrategy(sc, md)
+    if c == "stop":
+        return StopLossRegimeStrategy(sc)
+    return RegimeStrategy(sc) if sp.get("regime") else SignalStrategy(sc)

@@ -3,21 +3,28 @@ import json
 import sys
 import time
 
+import numpy as np
 import pandas as pd
 
 import ml
-from framework import ROOT, Lab
+from framework import CACHE, ROOT, Lab
 
 EV = ROOT / "data" / "events"
 EVENTS = {"buyback": "buyback.parquet", "yjyg": "yjyg.parquet", "zengchi": "zengchi.parquet",
           "lhb": "lhb_jg.parquet", "dzjy": "dzjy.parquet", "gdhs": "gdhs.parquet"}
 EVENTS_PLUS = dict(EVENTS, reports="reports.parquet", unlock="unlock.parquet")
 EVENTS_FIN = dict(EVENTS, fin="fin.parquet")
+EVENTS_MARGIN = dict(EVENTS_FIN)
+EVENTS_REG = dict(EVENTS_FIN, wenxun="wenxun.parquet", lian="lian.parquet")
 
 
 def load_ext(md, plus=False):
-    src = EVENTS_FIN if plus == "fin" else (EVENTS_PLUS if plus else EVENTS)
+    src = EVENTS_REG if plus == "reg" else EVENTS_MARGIN if plus == "margin" else (EVENTS_FIN if plus == "fin" else (EVENTS_PLUS if plus else EVENTS))
     ext = {k: pd.read_parquet(EV / v) for k, v in src.items()}
+    if plus in ("margin", "reg"):                           # 融资融券用压缩后的矩阵（按数据日期对齐）
+        z = np.load(ROOT / "data/derived/margin.npz")
+        ext["margin"] = {k: z[k] for k in ("rzye", "rzjme", "rqyl")}
+        ext["margin"]["_dates"] = z["dates"]
     if "unlock" in ext:
         ext["unlock"] = ml.unlock_ext(md, ext["unlock"])
     return ext
@@ -36,6 +43,18 @@ SPECS = {
     ("H31", "base"): dict(H=20, use_events=True, hold=10, plus="fin"),
     ("H32", "base"): dict(H=40, use_events=True, hold=10, plus="fin"),
     ("H33", "base"): dict(H=20, use_events=True, hold=10, plus="fin", regime=True),
+    ("H40", "base"): dict(H=20, use_events=True, hold=10, plus="fin", regime=True, window_years=3),
+    ("H41", "base"): dict(H=20, use_events=True, hold=10, plus="fin", regime=True, label="riskadj"),
+    ("H42", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True),
+    ("H43", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, window_years=3),
+    ("H44", "base"): dict(H=20, use_events=True, hold=10, plus="reg", regime=True),
+    ("H45", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, label="sizeneutral"),
+    ("H46", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, universe="large"),
+    ("H47", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, construct="div"),
+    ("H49", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, label="top10"),
+    ("H51", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, construct="stop"),
+    ("H53", "base"): dict(H=30, use_events=True, hold=10, plus="margin", regime=True),
+    ("H37", "base"): dict(H=20, use_events=True, hold=10, plus="fin", multi=True),
     ("S05", "base"): dict(H=20, use_events=True, hold=10, plus="fin", model="tree", rank_inputs=True,
                           keep={k for k, _ in __import__("families").SCORECARD}),
     ("S06", "base"): dict(H=20, use_events=True, hold=10, plus="fin", model="small",
@@ -56,11 +75,20 @@ def main(items):
         sp = SPECS[(hyp, var)]
         ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
         t0 = time.time()
-        extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs") if k in sp}
-        mk = ml.ensemble_factory if sp.get("ensemble") else ml.factory
+        extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs", "window_years", "label", "universe", "construct") if k in sp}
+        mk = ml.multi_factory if sp.get("multi") else (ml.ensemble_factory if sp.get("ensemble") else ml.factory)
         fac = mk(H=sp["H"], use_events=sp["use_events"], last_year=2020, **extra)
         leak_fac = mk(H=sp["H"], use_events=sp["use_events"], max_year=2017, last_year=2017, **extra)
-        rr = lab.run(hyp, var, fac, split="train", ext=ext, start="2016-01-01", leak_factory=leak_fac,
+        lf = ROOT / "reports" / f"leak_{hyp}_{var}.json"
+        if lf.exists():                                   # 已在单独进程做过前视检测
+            import json as _j
+            lab._leak_cache[(hyp, var)] = _j.loads(lf.read_text())
+        cf = CACHE.parent / f"score_{hyp}_{var}_train.npy"
+        strat = None
+        if cf.exists():                                   # 训练集打分已由 cache_scores.py 用同一工厂算好，直接复用（省内存）
+            sc_ = np.load(cf).astype(np.float64)
+            strat = ml.build_strategy(sc_, sp, md)
+        rr = lab.run(hyp, var, fac, split="train", strategy=strat, ext=ext, start="2016-01-01", leak_factory=leak_fac,
                      leak_t_range=(t_lo, t_hi), leak_truncate="2018-12-31", params={"H": sp["H"], "model": "lgbm-fixed"},
                      n_target=10, renew=True, hold_days=sp["hold"])
         r, st = rr.row, rr.stats

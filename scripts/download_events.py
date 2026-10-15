@@ -375,9 +375,58 @@ def yysj():
                  note="只保留首次预约时间；avail_date = 报告期末 + 7 天；不保存实际披露时间与变更日期")
 
 
+def margin():
+    """融资融券个股明细（东方财富 RPTA_WEB_RZRQ_GGMX，按交易日）。交易所在次日公布前一日数据，
+    保守起见 avail_date = 数据日期，信号再顺延一个交易日（after_close_shift）。按月存分片，可续传。"""
+    import random
+    t0 = time.time()
+    part_dir = OUT / "margin_parts"
+    part_dir.mkdir(parents=True, exist_ok=True)
+    cols = "DATE,SCODE,RZYE,RZMRE,RZCHE,RZJME,RQYL,RQMCL,RZYEZB"
+    for s, e in months():
+        pf = part_dir / f"{s.date()}.parquet"
+        if pf.exists():
+            continue
+        rows = []
+        for ws in pd.date_range(s, e, freq="7D"):             # 一个月拆成每 7 天一段，避免深翻页被拒
+            we = min(ws + pd.Timedelta(days=6), e)
+            f = f"(DATE>='{ws.date()}')(DATE<='{we.date()}')"
+            page, busy = 1, 0
+            while True:
+                js = get_json(EM_DC, params=dict(reportName="RPTA_WEB_RZRQ_GGMX", columns=cols, filter=f, pageSize=500,
+                                                 pageNumber=page, sortColumns="DATE,SCODE", sortTypes="1,1",
+                                                 source="WEB", client="WEB"), timeout=60, tries=8)
+                res = js.get("result") or {}
+                data = res.get("data") or []
+                if not data and js.get("message") != "ok" and "为空" not in str(js.get("message")):
+                    busy += 1
+                    if busy > 8:
+                        raise RuntimeError(f"margin {ws.date()} 第 {page} 页持续失败：{js.get('message')}")
+                    time.sleep(20 * busy)
+                    continue
+                rows += data
+                if page >= (res.get("pages") or 0) or not data:
+                    break
+                page += 1
+                time.sleep(0.2 + random.random() * 0.3)
+        pd.DataFrame(rows).to_parquet(pf)
+        print("margin", s.date(), len(rows), round(time.time() - t0), flush=True)
+    df = pd.concat([pd.read_parquet(p) for p in sorted(part_dir.glob("*.parquet")) if p.stat().st_size > 0],
+                   ignore_index=True)
+    df.columns = [c.lower() for c in df.columns]
+    df = df.rename(columns={"scode": "code6"})
+    df["date"] = pd.to_datetime(df["date"])
+    df["avail_date"] = df["date"]
+    save_df(df, OUT / "margin.parquet")
+    log_download("events/margin", "东方财富 融资融券个股明细 RPTA_WEB_RZRQ_GGMX", f"{START}~{END}", len(df), t0,
+                 note="avail_date = 数据日期；使用时再顺延一个交易日（交易所次日公布）")
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for job in sys.argv[1:] or ["lhb", "dzjy", "buyback"]:
         {"lhb": lhb, "dzjy": dzjy, "buyback": buyback, "jgdy": jgdy, "yjyg": yjyg,
          "zengchi": lambda: buyback("增持", "zengchi"), "jgdy_slow": jgdy_slow,
-         "gdhs": gdhs, "reports": reports, "unlock": unlock, "fin": fin, "yysj": yysj}[job]()
+         "gdhs": gdhs, "reports": reports, "unlock": unlock, "fin": fin, "yysj": yysj, "margin": margin,
+         "wenxun": lambda: buyback("问询函", "wenxun"), "lian": lambda: buyback("立案", "lian"),
+         "jianguan": lambda: buyback("监管", "jianguan")}[job]()

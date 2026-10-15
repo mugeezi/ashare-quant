@@ -171,6 +171,17 @@ def event_features(md, ext: dict):
     if "fin" in ext:
         from fundamentals import fundamental_features
         yield from fundamental_features(md, ext)
+    if "margin" in ext:
+        yield from margin_features(md, ext)
+    for key, pat, excl in (("wenxun", "问询函", "审核|回复|答复|延期|核查意见"), ("lian", "立案", "进展|结案|撤销|终止")):
+        if key in ext:
+            df = ext[key]
+            tt = df["title"].astype(str)
+            ev = df[tt.str.contains(pat) & ~tt.str.contains(excl)]
+            t, j, _ = event_rows(md, ev, after_close_shift=True)
+            m = np.zeros((md.T, md.N), bool)
+            m[t, j] = True
+            yield f"d_{key}", _days_since(m, 250)
 
 
 def build(md, ext: dict | None = None):
@@ -178,3 +189,20 @@ def build(md, ext: dict | None = None):
     yield from price_features(md)
     if ext:
         yield from event_features(md, ext)
+
+
+def margin_features(md, ext):
+    """融资融券特征（交易所次日公布，统一顺延一个交易日：t 日只用到 t−1 日的数据）。非两融标的记为缺失。
+    数据来自 data/derived/margin.npz（由 build_margin.py 从明细压缩而成，按数据日期对齐）。
+    前视检测时 ext["margin"] 为扰动后的同结构字典。"""
+    mg = ext["margin"]
+    def get(k):
+        m = np.asarray(mg[k], dtype=np.float64)[: md.T]
+        return lag(m, 1)                                    # 顺延一个交易日
+    rzye, rzjme, rqyl = get("rzye"), get("rzjme"), get("rqyl")
+    fmv = md.a["fmv"]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        yield "rz_ratio", (rzye / fmv).astype(F32)
+        yield "rz_chg5", ((rzye - lag(rzye, 5)) / fmv).astype(F32)
+        yield "rz_net20", (_roll(np.nan_to_num(rzjme), 20, "sum", 10) / fmv).astype(F32)
+        yield "rq_ratio", (rqyl * lag(md.a["close"], 1) / fmv).astype(F32)
