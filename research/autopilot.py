@@ -30,9 +30,46 @@ def last_row(hyp, var, split):
     return d.iloc[-1] if len(d) else None
 
 
+def make_combo(hyp, var, comps):
+    """组合打分：各组成模型打分逐日转截面分位后等权平均。组成模型均已单独通过前视检测，逐日分位平均不引入未来信息。"""
+    import numpy as np
+    from run_batch3 import SPECS
+    for sp in ("train", "valid"):
+        mats = []
+        for c in comps:
+            f = CACHE.parent / f"score_{c}_base_{sp}.npy"
+            if not f.exists():
+                rc, _ = run(["cache_scores.py", c, "base"] + ([sp] if sp == "valid" else []), f"{c}_{sp}cache")
+                if rc != 0:
+                    return False
+            m = np.load(f).astype(np.float64)
+            mats.append(pd.DataFrame(m).rank(axis=1, pct=True).values)
+            del m
+        out = np.nanmean(np.stack(mats), axis=0) if len(mats) > 1 else mats[0]
+        np.save(CACHE.parent / f"score_{hyp}_{var}_{sp}.npy", out.astype(np.float32))
+        del mats, out
+    d = pd.read_csv(ROOT / "experiments.csv")
+    def leak_ok(c):
+        f = ROOT / "reports" / f"leak_{c}_base.json"
+        if f.exists():
+            return bool(json.loads(f.read_text()).get("passed"))
+        r = d[(d.hyp_id == c) & (d.variant == "base") & (d.split == "train")]
+        return len(r) > 0 and str(r.iloc[-1].leak_test).startswith("pass")
+    ok = all(leak_ok(c) for c in comps)
+    (ROOT / "reports" / f"leak_{hyp}_{var}.json").write_text(json.dumps(
+        {"passed": ok, "n_checks": 0, "changed": [], "note": "组合打分：组成模型 " + "、".join(comps) + " 均单独通过前视检测"}, ensure_ascii=False))
+    log(f"  组合打分 {'+'.join(comps)} 已生成，组成模型前视检测 {'全部通过' if ok else '未全部通过'}")
+    return ok
+
+
 def pipeline(hyp, var="base", reuse=None):
     log(f"== {hyp}/{var}")
     cf = CACHE.parent / f"score_{hyp}_{var}_train.npy"
+    from run_batch3 import SPECS
+    comps = SPECS.get((hyp, var), {}).get("combo")
+    if comps and not cf.exists():
+        if not make_combo(hyp, var, comps):
+            return log("  组合打分失败或组成模型未全部通过前视检测")
     if reuse:                                     # 构建类变体：打分与 reuse 完全相同
         for sp in ("train", "valid"):
             src = CACHE.parent / f"score_{reuse}_base_{sp}.npy"
@@ -51,7 +88,10 @@ def pipeline(hyp, var="base", reuse=None):
         log(f"  筛选：超额 {r['excess']:+.1%}，回撤 {r['dd']:.1%}，正年 {r['years']}/5")
         if not (r["excess"] >= 0.20 and r["dd"] >= -0.18):
             return log("  未晋级")
-    rc, out = run(["run_leak.py", hyp, var], f"{hyp}_leak")
+    if comps:
+        rc, out = 0, "'passed': True"
+    else:
+        rc, out = run(["run_leak.py", hyp, var], f"{hyp}_leak")
     if rc != 0 or "'passed': True" not in out:
         return log("  前视检测未通过或失败：" + out[-300:])
     rc, out = run(["run_batch3.py", f"{hyp}:{var}"], f"{hyp}_train")

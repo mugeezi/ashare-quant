@@ -6,14 +6,14 @@ import pandas as pd
 
 import ml
 from framework import Lab
-from run_batch3 import EV, EVENTS, SPECS, load_ext
+from run_batch3 import EV, EVENTS, SPECS, load_ext, load_ext_plus
 
 
 def main(hyp, var):
     sp = SPECS[(hyp, var)]
     lab = Lab()
     md = lab.md
-    ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
+    ext = load_ext_plus(md, sp) if sp["use_events"] else None
     extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs", "window_years", "label", "universe", "construct") if k in sp}
     mk = ml.multi_factory if sp.get("multi") else (ml.ensemble_factory if sp.get("ensemble") else ml.factory)
     fac = mk(H=sp["H"], use_events=sp["use_events"], last_year=2023, **extra)

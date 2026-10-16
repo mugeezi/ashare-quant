@@ -114,6 +114,9 @@ def _perturb_ext(ext: dict | None, cut_date, rng) -> dict | None:
         return ext
     out = {}
     for name, df in ext.items():
+        if not isinstance(df, (dict, pd.DataFrame)):     # 开关类条目（如 _mkt）原样保留
+            out[name] = df
+            continue
         if isinstance(df, dict):                         # 矩阵型外部数据（如融资融券）：扰动 cut 之后的行
             dts = pd.to_datetime(df["_dates"])
             m = np.asarray(dts > cut_date)
@@ -319,7 +322,7 @@ class Lab:
             gc.collect()
         lk = self._leak_cache[key]
         if not lk["passed"]:
-            raise RuntimeError(f"{hyp}/{variant} 前视检测未通过：{lk['changed']}")
+            raise RuntimeError(f"{hyp}/{variant} 前视检测未通过：{lk.get('changed')}")
         s0, end = SPLITS[split]
         if start is not None:
             if not (pd.Timestamp(s0) <= pd.Timestamp(start) <= pd.Timestamp(end)):
@@ -360,7 +363,7 @@ class Lab:
                    max_drawdown=round(st["max_drawdown"], 4), turnover_annual=round(turnover, 1), n_buys=n_buys,
                    years_excess_pos=f"{ypos}/{len(st['yearly_excess'])}", smb_alpha=round(st["smb_alpha"], 4),
                    smb_beta=round(st["smb_beta"], 3), alpha_share=round(st["alpha_share"], 3) if st["alpha_share"] == st["alpha_share"] else None,
-                   leak_test=f"pass {lk['n_checks']}", passed=bool(passed), trial_no=len(exp) + 1,
+                   leak_test=(f"pass {lk['n_checks']}" if 'n_checks' in lk else 'pass combo'), passed=bool(passed), trial_no=len(exp) + 1,
                    valid_use_no=self._valid_uses(exp, hyp) + (split == "valid"), notes=note)
         append_exp(row)
         st["secs"] = time.time() - t0

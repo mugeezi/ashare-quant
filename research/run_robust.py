@@ -7,7 +7,7 @@ import pandas as pd
 
 import ml
 from framework import Lab, leak_test
-from run_batch3 import EV, EVENTS, SPECS, load_ext
+from run_batch3 import EV, EVENTS, SPECS, load_ext, load_ext_plus
 
 VARS = {"hold8": dict(hold_days=8), "hold12": dict(hold_days=12), "k24": dict(renew_k=24), "k36": dict(renew_k=36),
         "n8": dict(n_target=8), "n12": dict(n_target=12)}
@@ -24,7 +24,7 @@ def main(hyp, base_var):
     leak_fac = mk(H=H, use_events=use_events, max_year=2017, last_year=2017, **extra)
     t_lo = int(md.dates.searchsorted(pd.Timestamp("2016-02-01")))
     t_hi = int(md.dates.searchsorted(pd.Timestamp("2017-12-01")))
-    ext = load_ext(md, sp.get("plus", False)) if use_events else None
+    ext = load_ext_plus(md, sp) if use_events else None
     lf = __import__("framework").ROOT / "reports" / f"leak_{hyp}_{base_var}.json"
     lk = __import__("json").loads(lf.read_text()) if lf.exists() else \
         leak_test(md, leak_fac, ext, t_range=(t_lo, t_hi), truncate="2018-12-31")

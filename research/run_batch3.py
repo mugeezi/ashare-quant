@@ -28,6 +28,19 @@ def load_ext(md, plus=False):
     if "unlock" in ext:
         ext["unlock"] = ml.unlock_ext(md, ext["unlock"])
     return ext
+
+
+def load_ext_plus(md, sp):
+    """按规格加载外部数据，并加上市场状态 / 同伴环境特征开关。"""
+    ext = load_ext(md, sp.get("plus", False))
+    if sp.get("mkt"):
+        ext["_mkt"] = True
+    if sp.get("peer"):
+        ext["_peer"] = True
+    for k in ("chip", "emo", "cal", "peer2"):
+        if sp.get(k):
+            ext["_" + k] = True
+    return ext
 SPECS = {
     ("H21", "base"): dict(H=10, use_events=False, hold=10),
     ("H21", "h5"): dict(H=5, use_events=False, hold=5),
@@ -54,6 +67,25 @@ SPECS = {
     ("H49", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, label="top10"),
     ("H51", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, construct="stop"),
     ("H53", "base"): dict(H=30, use_events=True, hold=10, plus="margin", regime=True),
+    ("H57", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, mkt=True),
+    ("H60", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, peer=True),
+    ("H61", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, chip=True),
+    ("H62", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, chip=True, mkt=True, peer=True),
+    ("H63", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H42", "H27"]),
+    ("H64", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H42", "H53", "H43"]),
+    ("H65", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H42", "H61"]),
+    ("H66", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, label="pathadj"),
+    ("H67", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, emo=True),
+    ("H68", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, cal=True),
+    ("H69", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, seeds=(7, 11, 13)),
+    ("H70", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H42", "H60"]),
+    ("H71", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, peer=True, emo=True),
+    ("H72", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, peer=True, peer2=True),
+    ("H73", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H60", "H53"]),
+    ("H60s", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, peer=True, seeds=(7, 11, 13)),
+    ("H67s", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, emo=True, seeds=(7, 11, 13)),
+    ("H78", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H67", "H60"]),
+    ("H79", "base"): dict(H=30, use_events=True, hold=10, plus="margin", regime=True, emo=True),
     ("H37", "base"): dict(H=20, use_events=True, hold=10, plus="fin", multi=True),
     ("S05", "base"): dict(H=20, use_events=True, hold=10, plus="fin", model="tree", rank_inputs=True,
                           keep={k for k, _ in __import__("families").SCORECARD}),
@@ -73,7 +105,7 @@ def main(items):
     for it in items:
         hyp, var = it.split(":")
         sp = SPECS[(hyp, var)]
-        ext = load_ext(md, sp.get("plus", False)) if sp["use_events"] else None
+        ext = load_ext_plus(md, sp) if sp["use_events"] else None
         t0 = time.time()
         extra = {k: sp[k] for k in ("keep", "seeds", "regime", "model", "rank_inputs", "window_years", "label", "universe", "construct") if k in sp}
         mk = ml.multi_factory if sp.get("multi") else (ml.ensemble_factory if sp.get("ensemble") else ml.factory)

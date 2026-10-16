@@ -103,7 +103,19 @@ def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, str
         dfl["q"] = dfl.groupby("t")["s"].rank(pct=True).mul(5).clip(upper=4.999).fillna(2).astype(int)
         y = dfl.groupby(["t", "q"])["f"].rank(pct=True).values - 0.5
         del dfl
-    if label == "top10":                                    # 二分类：是否进入当日截面前 10%
+    if label == "pathadj":                                  # 路径调整标签：持有期收益 − 0.5 × 持有期内最大不利偏移（买入后最低价相对买入价的跌幅）
+        O, Lw = hfq(md, "open"), hfq(md, "low")
+        fmin = pd.DataFrame(Lw[::-1]).rolling(H, min_periods=1).min().values[::-1]   # fmin[s] = min(L[s..s+H-1])
+        fwd = np.full(len(ti), np.nan)
+        ok = ti + 1 + H < md.T
+        with np.errstate(invalid="ignore", divide="ignore"):
+            buy = O[ti[ok] + 1, ji[ok]]
+            ret = O[ti[ok] + 1 + H, ji[ok]] / buy - 1
+            mae = np.minimum(fmin[ti[ok] + 1, ji[ok]] / buy - 1, 0)
+            fwd[ok] = ret + 0.5 * mae
+        y = pd.Series(fwd).groupby(ti).rank(pct=True).values - 0.5
+        del fmin, Lw
+    if label == "top10":                                  # 二分类：是否进入当日截面前 10%
         y = np.where(np.isfinite(y), (y >= 0.4).astype(float), np.nan)
     if universe == "large":                                  # 只在当日流通市值前 50% 的股票中训练和选股
         vi = names.index("log_fmv")
