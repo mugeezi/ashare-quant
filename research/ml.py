@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import gc
+import os
 
 import lightgbm as lgb
 import numpy as np
@@ -78,6 +79,9 @@ def make_panel(md, ext, H, max_year=None, keep=None, rank_inputs=False):
         fwd[ok] = b / a - 1
     y = pd.Series(fwd).groupby(ti).rank(pct=True).values - 0.5
     return names, X, y, ti, ji
+
+
+_IMP: dict = {}
 
 
 def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, stride=2, max_year=None, keep=None,
@@ -184,6 +188,10 @@ def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, str
                 m = lgb.train(dict(prm, seed=sd), lgb.Dataset(X[tr], y[tr], feature_name=names, free_raw_data=True),
                               N_ROUNDS)
                 pred += m.predict(X[pr], num_threads=2) / len(seeds)
+                if os.environ.get("IMP_OUT"):                  # 诊断用：记录各年模型按 gain 的特征重要性
+                    _IMP.setdefault(Y, {})
+                    for nm_, g_ in zip(names, m.feature_importance("gain")):
+                        _IMP[Y][nm_] = _IMP[Y].get(nm_, 0.0) + float(g_)
                 del m
         if big is not None:
             pred = np.where(big[pr], pred, np.nan)
