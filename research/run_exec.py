@@ -73,6 +73,22 @@ class EmoQ(EmoTP):
         return self.tp_off if t >= 0 and self.cold[t] else None
 
 
+class EmoRegime(ml.RegimeStrategy):
+    """情绪仓位控制（冻结后探索）：涨停溢价 5 日均值低于其过去 250 日 30% 分位（退潮）时半仓。
+    mode="emo" 只看情绪；"or" 情绪退潮或指数弱市任一满足即半仓；"and" 两者同时满足才半仓。只用 t 日及以前数据。"""
+
+    def __init__(self, score, md, mode="emo"):
+        super().__init__(score)
+        q = EmoQ(score, md)
+        self.cold, self.mode = q.cold, mode
+
+    def target_n(self, t, v):
+        idx_low = super().target_n(t, v) < self.n_full
+        cold = bool(self.cold[t]) if t < len(self.cold) else False
+        on = cold if self.mode == "emo" else (cold or idx_low) if self.mode == "or" else (cold and idx_low)
+        return self.n_low if on else self.n_full
+
+
 class Lagged(ml.RegimeStrategy):
     """保守版尾盘买入：t 日收盘买入只用 t−1 日收盘的打分（不用当日收盘信息）。"""
 
@@ -118,6 +134,8 @@ X["X08_H71_nf"] = ("H71_nf", {"vk3": RULES["vk3"]})
 X["X08_H53_nf"] = ("H53_nf", {"zb": RULES["zb"]})
 X["X12_H68_nf"] = ("H68_nf", {"dip1zb": ("zb", dict(buy_dip=0.01))})
 X["X12_H67s_nf"] = ("H67s_nf", {"dip1zb": ("zb", dict(buy_dip=0.01))})
+for _b in ("H67_nf", "H68_nf", "H73_nf"):                     # 冻结后探索：情绪仓位控制，只跑训练集
+    X[f"X20_{_b}"] = (_b, {"emo": ("emoreg_emo", {}), "or": ("emoreg_or", {}), "and": ("emoreg_and", {})})
 X["X03q"] = ("H67", {"emoq3": ("emoq3", {}), "emoq5": ("emoq5", {}), "emoq8": ("emoq8", {})})
 X["X09"] = ("H67", {"ma5": ("ma5", {}), "zb": ("zb", {})})
 
@@ -130,6 +148,8 @@ def build(kind, sc, md):
         return SignalStrategy(sc)
     if kind == "lag":
         return Lagged(sc)
+    if kind.startswith("emoreg_"):
+        return EmoRegime(sc, md, kind.split("_")[1])
     if kind in ("ma5", "zb"):
         return ExitRule(sc, md, kind)
     if kind.startswith("emoq"):
