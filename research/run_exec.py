@@ -133,7 +133,10 @@ def build(kind, sc, md):
     raise ValueError(kind)
 
 
-def main(split, hyp, only=None, lab=None):
+FIX_NOTE = "漏洞修复重跑：回调买入名单开盘前确定、不替补，成交须最低价 ≤ 限价 − 0.01"
+
+
+def main(split, hyp, only=None, lab=None, suffix="", reason=None):
     base_hyp, variants = X[hyp]
     lab = lab or Lab()
     md = lab.md
@@ -149,10 +152,12 @@ def main(split, hyp, only=None, lab=None):
     for var, (kind, kw) in variants.items():
         if only and var != only:
             continue
+        base_var, var = var, var + suffix
         lab._leak_cache[(hyp, var)] = lk
         t0 = time.time()
         rr = lab.run(hyp, var, None, split=split, strategy=build(kind, sc, md), start="2016-01-01" if split == "train" else None,
-                     params={"score": base_hyp, "kind": kind}, notes=f"买卖点规则，打分 {base_hyp}", **{**BASE, **kw})
+                     params={"score": base_hyp, "kind": kind}, reason=reason,
+                     notes=f"买卖点规则，打分 {base_hyp}" + (f"；{FIX_NOTE}（原变体 {base_var}）" if suffix else ""), **{**BASE, **kw})
         r, st = rr.row, rr.stats
         ex = rr.result.stat.get("exits", {})
         print(f"{hyp}/{var}: 年化 {r['cagr']:+.1%}  超额 {r['excess_cagr']:+.1%}  回撤 {r['max_drawdown']:.1%}  "
@@ -174,7 +179,30 @@ def main(split, hyp, only=None, lab=None):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "robust":                        # 训练集稳健性：持有 8/12、持仓 8/12、续持带宽 24/36
+    if sys.argv[1] == "fix-rerun":                     # 2026-10-16：回调买入前视漏洞修复后，重跑全部受影响变体
+        lab = Lab()
+        hs = [h for h in X if h.startswith(("X10_", "X12_", "X13_"))]
+        for h in hs:
+            main("train", h, None, lab, suffix="_fix")
+        for it in sys.argv[2:]:                          # 修复前用过验证集的变体，形如 X12_H60:dip1zb
+            h, v = it.split(":")
+            try:
+                main("valid", h, v, lab, suffix="_fix", reason=FIX_NOTE)
+            except PermissionError as e:
+                print(f"{h}/{v}_fix 未上验证集：{e}", flush=True)
+    elif sys.argv[1] == "fix-robust":
+        lab = Lab()
+        for it in sys.argv[2:]:
+            h, v = it.split(":")
+            b, vs = X[h]
+            kind, kw = vs[v]
+            alt = {f"{v}_hold8": dict(kw, hold_days=8), f"{v}_hold12": dict(kw, hold_days=12),
+                   f"{v}_n8": dict(kw, n_target=8), f"{v}_n12": dict(kw, n_target=12),
+                   f"{v}_k24": dict(kw, renew_k=24), f"{v}_k36": dict(kw, renew_k=36)}
+            X[h] = (b, {k: (kind, a) for k, a in alt.items()})
+            main("train", h, None, lab, suffix="_fix")
+            X[h] = (b, vs)
+    elif sys.argv[1] == "robust":                        # 训练集稳健性：持有 8/12、持仓 8/12、续持带宽 24/36
         lab = Lab()
         for it in sys.argv[2:]:
             h, v = it.split(":")

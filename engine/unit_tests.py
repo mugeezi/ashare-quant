@@ -244,7 +244,23 @@ def main():
     md.a["low"][1, 0] = 9.85
     r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=3, buy_dip=0.01)).run()
     b = r.trades[r.trades.side == "buy"]
-    check("回调买入：最低价触及 前收×0.99 按限价成交", len(b) == 1 and abs(b.iloc[0].price - 9.9 * 1.001) < 1e-9)
+    check("回调买入：最低价低于 前收×0.99 一分钱以上按限价成交", len(b) == 1 and abs(b.iloc[0].price - 9.9 * 1.001) < 1e-9)
+    md = make_md()
+    md.a["low"][1, 0] = 9.90                            # 只是碰到限价 9.90，不算成交
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=3, buy_dip=0.01)).run()
+    check("回调买入：最低价恰好等于限价不算成交（保守口径）", (r.trades.side == "buy").sum() == 0 if len(r.trades) else True)
+    md = make_md()
+    md.a["low"][1, 1] = 9.80                            # 第 1 名（股票 0）未触及限价，第 2 名（股票 1）触及
+    r = Backtest(md, Fixed([0, 1], once=True), cfg(md, n_target=1, hold_days=3, buy_dip=0.01)).run()
+    check("回调买入：名单开盘前确定，第 1 名未成交不得用第 2 名替补", (r.trades.side == "buy").sum() == 0 if len(r.trades) else True,
+          f"{r.trades[['code', 'side']].values.tolist() if len(r.trades) else []}")
+    md = make_md()
+    md.a["open"][1, 0] = md.a["up_limit"][1, 0]          # 第 1 名开盘涨停（9:25 可知），可以替补第 2 名
+    md.a["high"][1, 0] = md.a["up_limit"][1, 0]
+    md.a["low"][1, 1] = 9.80
+    r = Backtest(md, Fixed([0, 1], once=True), cfg(md, n_target=1, hold_days=3, buy_dip=0.01)).run()
+    b = r.trades[r.trades.side == "buy"] if len(r.trades) else r.trades
+    check("回调买入：开盘即可知的买不进（开盘涨停）可以替补", len(b) == 1 and b.iloc[0].code == md.codes[1])
     md = make_md()
     r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=3, buy_dip=0.01)).run()
     check("回调买入：未触及限价不成交", (r.trades.side == "buy").sum() == 0 if len(r.trades) else True)

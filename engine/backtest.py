@@ -268,11 +268,16 @@ class Backtest:
                 positions.remove(p)
             # 3) 买入
             slots = cur_target - len(positions)
+            dip_mode = cfg.buy_dip is not None or cfg.buy_dip_vol_k is not None
             if slots > 0 and len(cands) and cfg.buy_at == "open":
                 alloc = nav_prev / cfg.n_target
                 held = {p.c for p in positions}
+                rate = COMMISSION_RATE if cfg.costs else 0.0
+                # 先定名单。开盘价公布时（9:25）即可知的情形（已持有、停牌、开盘涨停、高开超限、资金不足一手）可以替补；
+                # 回调限价模式下名单一经确定只挂这些单，未成交的当天空仓，不得再用后面的候选替补（2026-10-16 修复前视漏洞）。
+                orders, reserved = [], 0.0
                 for c in cands:
-                    if slots <= 0:
+                    if len(orders) >= slots:
                         break
                     if c in held:
                         continue
@@ -283,26 +288,40 @@ class Backtest:
                         if why == "exright_conservative":
                             stat["exright_extra_buy"] += 1
                         continue
-                    base_px = self.O[t, c]
-                    if cfg.max_gap is not None and base_px / self.PC[t, c] - 1 > cfg.max_gap:
+                    o = self.O[t, c]
+                    if cfg.max_gap is not None and o / self.PC[t, c] - 1 > cfg.max_gap:
                         bump(stat["buy_block"], "gap_too_high")
                         continue
-                    dip = cfg.buy_dip
-                    if cfg.buy_dip_vol_k is not None:
-                        rv = self.rng20[t - 1, c] if t > 0 else np.nan
-                        dip = cfg.buy_dip_vol_k * rv if np.isfinite(rv) else (cfg.buy_dip or 0.0)
-                    if dip is not None:
-                        lim = self.PC[t, c] * (1 - dip)
-                        if base_px > lim:
-                            if self.L[t, c] <= lim:
-                                base_px = lim
-                            else:
-                                bump(stat["buy_block"], "dip_not_filled")
-                                continue
+                    lim = None
+                    if dip_mode:
+                        dip = cfg.buy_dip
+                        if cfg.buy_dip_vol_k is not None:
+                            rv = self.rng20[t - 1, c] if t > 0 else np.nan
+                            dip = cfg.buy_dip_vol_k * rv if np.isfinite(rv) else (cfg.buy_dip or 0.0)
+                        lim = math.floor(self.PC[t, c] * (1 - dip) * 100 + 1e-9) / 100   # 限价取到分（向下）
+                    ref_px = min(o, lim) if lim is not None else o                       # 挂单时按可能的最高成交价预留资金
+                    budget = min(alloc, cash - reserved)
+                    if math.floor(budget / (ref_px * (1 + self.slip) * (1 + rate)) / 100) * 100 < 100:
+                        stat["insufficient_lot"] += 1
+                        continue
+                    orders.append((c, lim, budget))
+                    if lim is None:                                  # 开盘价成交确定：按实际支出预留（与修复前逐笔扣款一致）
+                        px0 = o * (1 + self.slip)
+                        sh0 = math.floor(budget / (px0 * (1 + rate)) / 100) * 100
+                        reserved += sh0 * px0 + (commission(sh0 * px0) if cfg.costs else 0.0)
+                    else:
+                        reserved += budget
+                    held.add(c)
+                for c, lim, budget in orders:
+                    base_px = self.O[t, c]
+                    if lim is not None and base_px > lim:
+                        if self.L[t, c] <= lim - 0.01 + 1e-9:          # 保守口径：最低价须低于限价至少一分钱才算成交
+                            base_px = lim
+                        else:
+                            bump(stat["buy_block"], "dip_not_filled")
+                            continue
                     px = base_px * (1 + self.slip)
-                    budget = min(alloc, cash)
-                    rate = COMMISSION_RATE if cfg.costs else 0.0
-                    shares = math.floor(budget / (px * (1 + rate)) / 100) * 100
+                    shares = math.floor(min(budget, cash) / (px * (1 + rate)) / 100) * 100
                     amt = shares * px
                     com = commission(amt) if cfg.costs else 0.0
                     if shares < 100 or amt + com > cash:
@@ -315,8 +334,6 @@ class Backtest:
                     trades.append(dict(date=date, code=md.codes[c], side="buy", price=px, shares=shares, amount=amt,
                                        commission=com, stamp=0.0, reason=""))
                     stat["buys"] += 1
-                    held.add(c)
-                    slots -= 1
             # 3b) 盘中止盈 / 止损（遵守 T+1：买入当日不卖）
             if cfg.take_profit or cfg.tp_vol_k or cfg.stop_loss or hasattr(self.s, "tp_for"):
                 for p in list(positions):

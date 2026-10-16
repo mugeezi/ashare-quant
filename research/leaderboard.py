@@ -15,13 +15,15 @@ v = exp[exp.split == "valid"].copy()
 rows = []
 for _, r in v.iterrows():
     h, var = r.hyp_id, r.variant
+    if h.startswith(("X10_", "X12_", "X13_")) and not str(var).endswith("_fix"):
+        continue                                       # 修复前结果含前视漏洞，已作废，以 _fix 重跑结果为准
     vf = ROOT / "reports" / f"valid_{h}_{var}_nav.csv"
     if not vf.exists():
         continue
     try:
         if h in RX.X or h.startswith("X"):
             b, vs = RX.X[h]
-            kind, kw = vs[var]
+            kind, kw = vs[var[:-4] if str(var).endswith("_fix") else var]
             sc = np.load(CACHE.parent / f"score_{b}_base_train.npy").astype(np.float64)
             strat, cfg = RX.build(kind, sc, md), {**RX.BASE, **kw}
         else:
