@@ -106,9 +106,12 @@ for _b in ("H27", "H42", "H44", "H53", "H60", "H60s", "H61", "H67s", "H71"):
 for _b in ("H67", "H60s", "H42", "H53"):
     X[f"X10_{_b}"] = (_b, {"dip1": ("std", dict(buy_dip=0.01)), "dip2": ("std", dict(buy_dip=0.02))})
     X[f"X11_{_b}"] = (_b, {"gap3": ("std", dict(max_gap=0.03)), "gap5": ("std", dict(max_gap=0.05))})
-for _b in ("H42", "H44", "H53", "H60", "H60s", "H67", "H71"):
+for _b in ("H42", "H44", "H53", "H60", "H60s", "H67", "H71", "H68", "H27", "H47", "H61", "H64", "H67s"):
     X[f"X12_{_b}"] = (_b, {"dip2zb": ("zb", dict(buy_dip=0.02)), "dip1zb": ("zb", dict(buy_dip=0.01)),
                            "dip2vk3": ("std", dict(buy_dip=0.02, tp_vol_k=3.0)), "dip2sl8": ("std", dict(buy_dip=0.02, stop_loss=0.08))})
+for _b in ("H42", "H44", "H60", "H60s"):
+    X[f"X13_{_b}"] = (_b, {"dv2zb": ("zb", dict(buy_dip_vol_k=0.2)), "dv4zb": ("zb", dict(buy_dip_vol_k=0.4)),
+                           "dv3zb": ("zb", dict(buy_dip_vol_k=0.3))})
 X["X03q"] = ("H67", {"emoq3": ("emoq3", {}), "emoq5": ("emoq5", {}), "emoq8": ("emoq8", {})})
 X["X09"] = ("H67", {"ma5": ("ma5", {}), "zb": ("zb", {})})
 

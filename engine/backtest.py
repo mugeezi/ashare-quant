@@ -62,6 +62,7 @@ class Config:
     tail_slip: float = 0.0              # 收盘买入的额外滑点（收盘价近似 14:50 价格的补偿）
     buy_dip: float | None = None        # 回调限价买入：挂 前收×(1−d) 的限价单，开盘更低按开盘价，盘中最低价触及按限价，否则不成交
     max_gap: float | None = None        # 不追高开：开盘相对前收涨幅超过 g 则放弃买入
+    buy_dip_vol_k: float | None = None  # 波动率回调买入：限价 = 前收 × (1 − k × 买入前 20 日平均振幅)
 
     def __post_init__(self):
         if self.renew_k is None:
@@ -110,7 +111,7 @@ class Backtest:
         self.exit_target = ex["target_code"].values
         self.idx = md.index_close["zzqz"].ffill().values
         self.rng20 = None
-        if cfg.tp_vol_k:
+        if cfg.tp_vol_k or cfg.buy_dip_vol_k:
             with np.errstate(invalid="ignore", divide="ignore"):
                 r = np.where(self.TS == 1, (self.H - self.L) / self.C, np.nan)
             self.rng20 = pd.DataFrame(r).rolling(20, min_periods=10).mean().values
@@ -286,8 +287,12 @@ class Backtest:
                     if cfg.max_gap is not None and base_px / self.PC[t, c] - 1 > cfg.max_gap:
                         bump(stat["buy_block"], "gap_too_high")
                         continue
-                    if cfg.buy_dip is not None:
-                        lim = self.PC[t, c] * (1 - cfg.buy_dip)
+                    dip = cfg.buy_dip
+                    if cfg.buy_dip_vol_k is not None:
+                        rv = self.rng20[t - 1, c] if t > 0 else np.nan
+                        dip = cfg.buy_dip_vol_k * rv if np.isfinite(rv) else (cfg.buy_dip or 0.0)
+                    if dip is not None:
+                        lim = self.PC[t, c] * (1 - dip)
                         if base_px > lim:
                             if self.L[t, c] <= lim:
                                 base_px = lim
