@@ -79,7 +79,8 @@ def pipeline(hyp, var="base", reuse=None):
         rc, _ = run(["cache_scores.py", hyp, var], f"{hyp}_cache")
         if rc != 0:
             return log("  打分失败，跳过")
-    if not reuse:
+    import os
+    if not reuse and not os.environ.get("AP_NOSCREEN"):           # 数据修复重跑不做筛选器晋级判断
         rc, out = run(["screen_one.py", hyp, var], f"{hyp}_screen")
         res = [json.loads(l[7:]) for l in out.splitlines() if l.startswith("RESULT ")]
         if not res:

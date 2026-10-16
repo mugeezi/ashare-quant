@@ -66,6 +66,7 @@ def make_panel(md, ext, H, max_year=None, keep=None, rank_inputs=False):
         del arr
         gc.collect()
     X = X[:, :len(names)]                                    # 视图，不复制
+    print(f"特征 {len(names)} 个：{','.join(names)}", flush=True)
     gc.collect()
     if rank_inputs:
         X = _rank_inputs(X, ti)

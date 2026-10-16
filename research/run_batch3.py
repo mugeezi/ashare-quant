@@ -37,6 +37,8 @@ def load_ext_plus(md, sp):
         ext["_mkt"] = True
     if sp.get("peer"):
         ext["_peer"] = True
+    if sp.get("nofin"):
+        ext["_nofin"] = True
     for k in ("chip", "emo", "cal", "peer2"):
         if sp.get(k):
             ext["_" + k] = True
@@ -96,6 +98,10 @@ SPECS = {
     ("H34", "base"): dict(H=20, use_events=True, hold=10, plus="fin", ensemble=True),
     ("H27", "s13"): dict(H=20, use_events=True, hold=10, seeds=(13,)),
 }
+# 数据修复重跑（2026-10-16）：9 个候选去掉全部业绩报表数值特征的版本（_nf），其余完全不变
+for _h in ("H67", "H67s", "H68", "H60", "H60s", "H53", "H71"):
+    SPECS[(f"{_h}_nf", "base")] = dict(SPECS[(_h, "base")], nofin=True)
+SPECS[("H73_nf", "base")] = dict(SPECS[("H73", "base")], combo=["H60_nf", "H53_nf"], nofin=True)
 LEAK_RANGE = None
 
 
@@ -124,7 +130,7 @@ def main(items):
             strat = ml.build_strategy(sc_, sp, md)
         rr = lab.run(hyp, var, fac, split="train", strategy=strat, ext=ext, start="2016-01-01", leak_factory=leak_fac,
                      leak_t_range=(t_lo, t_hi), leak_truncate="2018-12-31", params={"H": sp["H"], "model": "lgbm-fixed"},
-                     n_target=10, renew=True, hold_days=sp["hold"])
+                     notes="数据修复重跑：去掉业绩报表数值特征（2026-10-16）" if sp.get("nofin") else "", n_target=10, renew=True, hold_days=sp["hold"])
         r, st = rr.row, rr.stats
         print(f"{hyp}/{var}: 年化 {r['cagr']:+.1%}  超额 {r['excess_cagr']:+.1%}  回撤 {r['max_drawdown']:.1%}  "
               f"正超额年份 {r['years_excess_pos']}  SMB β {r['smb_beta']:+.2f}  α {r['smb_alpha']:+.1%}  α 占比 {r['alpha_share']}  "

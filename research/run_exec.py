@@ -112,6 +112,12 @@ for _b in ("H42", "H44", "H53", "H60", "H60s", "H67", "H71", "H68", "H27", "H47"
 for _b in ("H42", "H44", "H60", "H60s"):
     X[f"X13_{_b}"] = (_b, {"dv2zb": ("zb", dict(buy_dip_vol_k=0.2)), "dv4zb": ("zb", dict(buy_dip_vol_k=0.4)),
                            "dv3zb": ("zb", dict(buy_dip_vol_k=0.3))})
+# 数据修复重跑（2026-10-16）：X 类候选换用 _nf 打分，规则不变
+X["X08_H60s_nf"] = ("H60s_nf", {"vk3": RULES["vk3"]})
+X["X08_H71_nf"] = ("H71_nf", {"vk3": RULES["vk3"]})
+X["X08_H53_nf"] = ("H53_nf", {"zb": RULES["zb"]})
+X["X12_H68_nf"] = ("H68_nf", {"dip1zb": ("zb", dict(buy_dip=0.01))})
+X["X12_H67s_nf"] = ("H67s_nf", {"dip1zb": ("zb", dict(buy_dip=0.01))})
 X["X03q"] = ("H67", {"emoq3": ("emoq3", {}), "emoq5": ("emoq5", {}), "emoq8": ("emoq8", {})})
 X["X09"] = ("H67", {"ma5": ("ma5", {}), "zb": ("zb", {})})
 
@@ -157,7 +163,8 @@ def main(split, hyp, only=None, lab=None, suffix="", reason=None):
         t0 = time.time()
         rr = lab.run(hyp, var, None, split=split, strategy=build(kind, sc, md), start="2016-01-01" if split == "train" else None,
                      params={"score": base_hyp, "kind": kind}, reason=reason,
-                     notes=f"买卖点规则，打分 {base_hyp}" + (f"；{FIX_NOTE}（原变体 {base_var}）" if suffix else ""), **{**BASE, **kw})
+                     notes=f"买卖点规则，打分 {base_hyp}" + (f"；{FIX_NOTE}（原变体 {base_var}）" if suffix else "")
+                     + ("；数据修复重跑：去掉业绩报表数值特征（2026-10-16）" if base_hyp.endswith("_nf") else ""), **{**BASE, **kw})
         r, st = rr.row, rr.stats
         ex = rr.result.stat.get("exits", {})
         print(f"{hyp}/{var}: 年化 {r['cagr']:+.1%}  超额 {r['excess_cagr']:+.1%}  回撤 {r['max_drawdown']:.1%}  "
@@ -179,7 +186,34 @@ def main(split, hyp, only=None, lab=None, suffix="", reason=None):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "fix-rerun":                     # 2026-10-16：回调买入前视漏洞修复后，重跑全部受影响变体
+    if sys.argv[1] == "pipeline":                       # 训练集 → 稳健性（≥5/6 超额 ≥5% 且回撤 ≤45%）→ 验证集一次
+        from framework import read_exp
+        lab = Lab()
+        for it in sys.argv[2:]:
+            h, v = it.split(":")
+            b, vs = X[h]
+            kind, kw = vs[v]
+            main("train", h, v, lab)
+            d = read_exp()
+            r = d[(d.hyp_id == h) & (d.variant == v) & (d.split == "train")].iloc[-1]
+            if str(r.passed).lower() != "true":
+                print(f"{h}/{v}: 训练集未达最低条件，停止", flush=True)
+                continue
+            alt = {f"{v}_hold8": dict(kw, hold_days=8), f"{v}_hold12": dict(kw, hold_days=12),
+                   f"{v}_n8": dict(kw, n_target=8), f"{v}_n12": dict(kw, n_target=12),
+                   f"{v}_k24": dict(kw, renew_k=24), f"{v}_k36": dict(kw, renew_k=36)}
+            X[h] = (b, {k: (kind, a) for k, a in alt.items()})
+            main("train", h, None, lab)
+            X[h] = (b, vs)
+            d = read_exp()
+            rb = d[(d.hyp_id == h) & d.variant.astype(str).str.startswith(f"{v}_") & (d.split == "train")].tail(6)
+            ok = int(((rb.excess_cagr >= 0.05) & (rb.max_drawdown >= -0.45)).sum())
+            print(f"{h}/{v}: 稳健性 {ok}/6", flush=True)
+            if ok < 5:
+                print(f"{h}/{v}: 稳健性未过，不上验证集", flush=True)
+                continue
+            main("valid", h, v, lab)
+    elif sys.argv[1] == "fix-rerun":                     # 2026-10-16：回调买入前视漏洞修复后，重跑全部受影响变体
         lab = Lab()
         hs = [h for h in X if h.startswith(("X10_", "X12_", "X13_"))]
         for h in hs:

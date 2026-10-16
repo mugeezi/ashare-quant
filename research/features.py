@@ -99,6 +99,7 @@ def _event_mask(md, t, j) -> np.ndarray:
 
 
 def event_features(md, ext: dict):
+    nofin = bool(ext.get("_nofin"))                  # 数据修复（2026-10-16）：不用业绩报表数值，只保留财报公告日
     ext = {k: v for k, v in ext.items() if not k.startswith("_")}
     f = {}
     if "yjyg" in ext:
@@ -170,8 +171,12 @@ def event_features(md, ext: dict):
             f["unlock_past10"] = (past / fs).astype(F32)
     yield from f.items()
     if "fin" in ext:
-        from fundamentals import fundamental_features
-        yield from fundamental_features(md, ext)
+        if nofin:
+            from fundamentals import report_days_only
+            yield from report_days_only(md, ext)
+        else:
+            from fundamentals import fundamental_features
+            yield from fundamental_features(md, ext)
     if "margin" in ext:
         yield from margin_features(md, ext)
     for key, pat, excl in (("wenxun", "问询函", "审核|回复|答复|延期|核查意见"), ("lian", "立案", "进展|结案|撤销|终止")):

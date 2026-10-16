@@ -42,7 +42,7 @@ def main(hyp, base_var):
         cfg = dict(n_target=10, renew=True, hold_days=sp["hold"])
         cfg.update(kw)
         rr = lab.run(hyp, name, fac, split="train", start="2016-01-01", strategy=strat,
-                     params={"H": H, "model": "lgbm-fixed", "robust_of": base_var}, notes="稳健性检验", **cfg)
+                     params={"H": H, "model": "lgbm-fixed", "robust_of": base_var}, notes="稳健性检验" + ("；数据修复重跑" if sp.get("nofin") else ""), **cfg)
         r, st = rr.row, rr.stats
         print(f"{hyp}/{name}: 年化 {r['cagr']:+.1%}  超额 {r['excess_cagr']:+.1%}  回撤 {r['max_drawdown']:.1%}  "
               f"正超额年份 {r['years_excess_pos']}  α {r['smb_alpha']:+.1%}  换手 {r['turnover_annual']}  达标 {r['passed']}",

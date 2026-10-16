@@ -79,6 +79,21 @@ def surprise_vs_forecast(fin_q: pd.DataFrame, yjyg: pd.DataFrame) -> pd.Series:
     return pd.Series(np.where(ok, np.clip(sur, -2, 2), np.nan), index=fin_q.index)
 
 
+def report_days_only(md, ext: dict):
+    """只用财报公告日（不用任何数值）：距最近一次财报公告的交易日数。与 fundamental_features 中的 days_since_report 逐值相同。
+    2026-10-16 数据修复：东方财富业绩报表数值存在追溯调整后记在首次公告日的问题，_nf 版本只保留这一个特征。"""
+    q = quarterly(ext["fin"])
+    t, j, _ = event_rows(md, q, after_close_shift=True)
+    days = np.full((md.T, md.N), np.nan)
+    ev = np.zeros((md.T, md.N), bool)
+    ev[t, j] = True
+    last = np.full(md.N, -10 ** 9)
+    for k in range(md.T):
+        last = np.where(ev[k], k, last)
+        days[k] = np.minimum(k - last, 260)
+    yield "days_since_report", days.astype(F32)
+
+
 def fundamental_features(md, ext: dict):
     """逐个产出 (名称, T×N 矩阵)。"""
     q = quarterly(ext["fin"])

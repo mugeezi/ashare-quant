@@ -31,7 +31,7 @@ def main(hyp, var):
         strat = ml.build_strategy(sc_, sp, md)
     rr = lab.run(hyp, var, fac, split="valid", strategy=strat, ext=ext, leak_factory=leak_fac, leak_t_range=(t_lo, t_hi), leak_truncate="2018-12-31",
                  params={"H": sp["H"], "model": "lgbm-fixed", "refit": "yearly, data to prior year-end"},
-                 n_target=10, renew=True, hold_days=sp["hold"])
+                 notes="数据修复重跑：去掉业绩报表数值特征（2026-10-16）" if sp.get("nofin") else "", n_target=10, renew=True, hold_days=sp["hold"])
     r, st = rr.row, rr.stats
     print(json.dumps({k: (float(v) if hasattr(v, "item") else v) for k, v in r.items()}, ensure_ascii=False, indent=1))
     print("分年超额:", json.dumps({k: round(v, 3) for k, v in st["yearly_excess"].items()}))
