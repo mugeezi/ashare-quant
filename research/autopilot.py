@@ -107,6 +107,8 @@ def pipeline(hyp, var="base", reuse=None):
     log(f"  稳健性 {ok}/{len(rb)}")
     if ok < 5:
         return log("  稳健性未过，不上验证集")
+    if os.environ.get("AP_TRAIN_ONLY"):                            # 研究冻结期：只做到训练集稳健性，不上验证集
+        return log("  训练集稳健性已过；冻结期不上验证集")
     if not (CACHE.parent / f"score_{hyp}_{var}_valid.npy").exists():
         rc, _ = run(["cache_scores.py", hyp, var, "valid"], f"{hyp}_vcache")
         if rc != 0:

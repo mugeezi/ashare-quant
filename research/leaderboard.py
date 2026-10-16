@@ -7,6 +7,16 @@ import run_exec as RX
 from dsr_eval import dsr, excess, _auto
 from framework import CACHE, ROOT, Backtest, Config, Lab, read_exp
 
+def uses_fin(h):
+    """该候选的打分是否含业绩报表数值特征（规格 plus 为 fin / margin / reg 且未设 nofin；组合打分看组成模型）。"""
+    from run_batch3 import SPECS
+    b = RX.X[h][0] if h in RX.X else h
+    sp = SPECS.get((b, "base"), {})
+    if "combo" in sp:
+        return any(uses_fin(c) for c in sp["combo"])
+    return sp.get("plus") in ("fin", "margin", "reg") and not sp.get("nofin")
+
+
 lab = Lab()
 md = lab.md
 exp = read_exp()
@@ -15,7 +25,7 @@ v = exp[exp.split == "valid"].copy()
 rows = []
 for _, r in v.iterrows():
     h, var = r.hyp_id, r.variant
-    if h.startswith(("X10_", "X12_", "X13_")) and not str(var).endswith("_fix"):
+    if h.startswith(("X10_", "X12_", "X13_")) and not str(var).endswith("_fix") and not h.endswith("_nf"):
         continue                                       # 修复前结果含前视漏洞，已作废，以 _fix 重跑结果为准
     vf = ROOT / "reports" / f"valid_{h}_{var}_nav.csv"
     if not vf.exists():
@@ -40,7 +50,7 @@ for _, r in v.iterrows():
     ok = (r.excess_cagr >= 0.08 and int(str(r.years_excess_pos)[0]) >= 2 and r.max_drawdown >= -0.35
           and (r.alpha_share or 0) >= 0.5 and p >= 0.95)
     rows.append(dict(策略=f"{h}/{var}" if var != "base" else h, 验证集超额=r.excess_cagr, 正年=r.years_excess_pos,
-                     回撤=r.max_drawdown, α占比=r.alpha_share, 样本外IR=round(sr * math.sqrt(242), 2), DSR=round(p, 3), 五项全过=ok))
+                     回撤=r.max_drawdown, α占比=r.alpha_share, 含业绩报表特征=uses_fin(h), 样本外IR=round(sr * math.sqrt(242), 2), DSR=round(p, 3), 五项全过=ok))
     del sc
 df = pd.DataFrame(rows).sort_values("DSR", ascending=False)
 df.to_csv(ROOT / "reports" / "leaderboard.csv", index=False)

@@ -40,7 +40,8 @@ def regress(e, x):
     return coef[0] * DAYS / ar if ar > 0 else np.nan, coef[1]
 
 
-def main():
+def main(cands=None, tag=""):
+    cands = cands or CANDS
     lab = Lab()
     md = lab.md
     bench = lab.bench
@@ -54,7 +55,12 @@ def main():
     pct = pd.DataFrame(fmv).rank(axis=1, pct=True).values.astype(np.float32)
     col = {c: i for i, c in enumerate(md.codes)}
     ex_all, rows, conc_rows = {}, [], []
-    for name in CANDS:
+    for name in cands:
+        h0 = name.split("/")[0]
+        v0 = (name.split("/") + ["base"])[1]
+        if not (ROOT / "reports" / f"valid_{h0}_{v0}_nav.csv").exists():
+            print(f"{name}：没有验证集结果，跳过", flush=True)
+            continue
         b, mk, cfg = builder(name, md)
         per = {}
         for sp, (s0, s1) in PERIODS.items():
@@ -119,13 +125,18 @@ def main():
     fam = fcluster(linkage(d, "average"), t=0.3, criterion="distance")
     out = pd.DataFrame(rows)
     out["相关性族"] = [f"F{f}" for f in fam]
-    out.to_csv(ROOT / "reports/diag_candidates.csv", index=False)
-    corr.round(3).to_csv(ROOT / "reports/diag_corr_2016_2023.csv")
-    corr_v.round(3).to_csv(ROOT / "reports/diag_corr_valid.csv")
-    pd.DataFrame(conc_rows).to_csv(ROOT / "reports/diag_concentration.csv", index=False)
+    out.to_csv(ROOT / f"reports/diag_candidates{tag}.csv", index=False)
+    corr.round(3).to_csv(ROOT / f"reports/diag_corr_2016_2023{tag}.csv")
+    corr_v.round(3).to_csv(ROOT / f"reports/diag_corr_valid{tag}.csv")
+    pd.DataFrame(conc_rows).to_csv(ROOT / f"reports/diag_concentration{tag}.csv", index=False)
     print(corr.round(2).to_string())
     print(out[["策略", "相关性族"]].to_string(index=False))
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "nf":
+        main(["H67_nf", "H68_nf", "H60s_nf", "H73_nf", "X08_H60s_nf/vk3", "X08_H71_nf/vk3", "X08_H53_nf/zb",
+              "X12_H68_nf/dip1zb", "X12_H67s_nf/dip1zb"], tag="_nf")
+    else:
+        main()

@@ -39,7 +39,7 @@ def load_ext_plus(md, sp):
         ext["_peer"] = True
     if sp.get("nofin"):
         ext["_nofin"] = True
-    for k in ("chip", "emo", "cal", "peer2"):
+    for k in ("chip", "emo", "cal", "peer2", "emo2"):
         if sp.get(k):
             ext["_" + k] = True
     return ext
@@ -102,6 +102,16 @@ SPECS = {
 for _h in ("H67", "H67s", "H68", "H60", "H60s", "H53", "H71"):
     SPECS[(f"{_h}_nf", "base")] = dict(SPECS[(_h, "base")], nofin=True)
 SPECS[("H73_nf", "base")] = dict(SPECS[("H73", "base")], combo=["H60_nf", "H53_nf"], nofin=True)
+# 冻结后探索（2026-10-16 用户要求继续尝试）：只用训练集，不上验证集，全部不含业绩报表数值特征
+_B = dict(H=20, use_events=True, hold=10, plus="margin", regime=True, nofin=True)
+SPECS[("E01", "base")] = dict(_B, emo=True, cal=True)
+SPECS[("E02", "base")] = dict(_B, emo=True, emo2=True)
+SPECS[("E03", "base")] = dict(_B, emo=True, H=30)
+SPECS[("E04", "base")] = dict(_B, emo=True, emo2=True, cal=True)
+SPECS[("E05", "base")] = dict(_B, emo=True, peer=True, cal=True)
+SPECS[("E06", "base")] = dict(_B, emo=True, seeds=(7, 11, 13, 17, 19))
+SPECS[("E07", "base")] = dict(_B, emo=True, H=10)
+SPECS[("E08", "base")] = dict(_B, emo=True, window_years=4)
 LEAK_RANGE = None
 
 

@@ -205,6 +205,8 @@ def build(md, ext: dict | None = None):
             yield from peer2_features(md)
         if ext.get("_emo"):
             yield from emotion_features(md)
+        if ext.get("_emo2"):
+            yield from emotion2_features(md)
         if ext.get("_cal"):
             yield from calendar_features(md)
 
@@ -243,6 +245,25 @@ def emotion_features(md):
                     ("emo_height", pd.Series(mx).rolling(3, min_periods=1).max().values)):
         yield name, _bcast(v, md.N)
     yield "lu_streak", streak
+
+
+def emotion2_features(md):
+    """情绪周期补充（冻结后探索，2026-10-16）：连板晋级率（昨日涨停今日继续涨停的比例）、首板占比、涨跌停差额比，均取 5 日均值；全市场同值。"""
+    from framework import eligible_matrix
+    a = md.a
+    el = eligible_matrix(md)
+    lu = limit_up_close(md) & el
+    ld = (a["tradestatus"] == 1) & (a["no_limit"] == 0) & (a["close"] <= a["down_limit"] + TOL) & el
+    prev = np.vstack([np.zeros((1, md.N), bool), lu[:-1]])
+    n_prev = prev.sum(1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        promo = np.where(n_prev > 0, (lu & prev).sum(1) / n_prev, np.nan)
+        first = (lu & ~prev).sum(1) / np.maximum(el.sum(1), 1)
+        nl, nd = lu.sum(1), ld.sum(1)
+        diff = np.where(nl + nd > 0, (nl - nd) / (nl + nd), 0.0)
+    sm = lambda v: pd.Series(v).rolling(5, min_periods=3).mean().values
+    for name, v in (("emo_promo5", sm(promo)), ("emo_first5", sm(first)), ("emo_lud5", sm(diff))):
+        yield name, _bcast(v, md.N)
 
 
 def calendar_features(md):

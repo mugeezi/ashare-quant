@@ -1,0 +1,2332 @@
+{
+ "H67": {
+  "2016": {
+   "fin_share": 0.1911,
+   "top10": [
+    [
+     "log_listed",
+     0.1479
+    ],
+    [
+     "log_price",
+     0.0556
+    ],
+    [
+     "log_fmv",
+     0.0504
+    ],
+    [
+     "log_amt20",
+     0.0469
+    ],
+    [
+     "bp",
+     0.0361
+    ],
+    [
+     "emo_lu5",
+     0.036
+    ],
+    [
+     "days_since_report",
+     0.0314
+    ],
+    [
+     "ret60",
+     0.0285
+    ],
+    [
+     "emo_height",
+     0.0284
+    ],
+    [
+     "emo_prem5",
+     0.0278
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0361,
+    "cfo_ratio": 0.013,
+    "ep_peer_rel": 0.0117,
+    "ep_self_pct": 0.004,
+    "ep_ttm": 0.0264,
+    "fc_surprise": 0.0169,
+    "gm": 0.0192,
+    "gm_chg": 0.0139,
+    "ni_yoy": 0.0135,
+    "rev_yoy": 0.0173,
+    "roe_ann": 0.0191
+   }
+  },
+  "2017": {
+   "fin_share": 0.1621,
+   "top10": [
+    [
+     "log_listed",
+     0.1548
+    ],
+    [
+     "log_amt20",
+     0.0672
+    ],
+    [
+     "log_price",
+     0.0449
+    ],
+    [
+     "log_fmv",
+     0.0443
+    ],
+    [
+     "emo_lu5",
+     0.0408
+    ],
+    [
+     "days_since_report",
+     0.0391
+    ],
+    [
+     "bp",
+     0.0365
+    ],
+    [
+     "vol60",
+     0.0312
+    ],
+    [
+     "emo_prem5",
+     0.0283
+    ],
+    [
+     "emo_ld5",
+     0.0282
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0365,
+    "cfo_ratio": 0.01,
+    "ep_peer_rel": 0.0095,
+    "ep_self_pct": 0.0082,
+    "ep_ttm": 0.0194,
+    "fc_surprise": 0.0151,
+    "gm": 0.0134,
+    "gm_chg": 0.011,
+    "ni_yoy": 0.0102,
+    "rev_yoy": 0.0137,
+    "roe_ann": 0.0151
+   }
+  },
+  "2018": {
+   "fin_share": 0.1452,
+   "top10": [
+    [
+     "log_listed",
+     0.1612
+    ],
+    [
+     "emo_lu5",
+     0.051
+    ],
+    [
+     "days_since_report",
+     0.0504
+    ],
+    [
+     "log_fmv",
+     0.0462
+    ],
+    [
+     "log_amt20",
+     0.043
+    ],
+    [
+     "emo_prem5",
+     0.0398
+    ],
+    [
+     "log_price",
+     0.0373
+    ],
+    [
+     "emo_ld5",
+     0.0364
+    ],
+    [
+     "vol60",
+     0.0335
+    ],
+    [
+     "turn5",
+     0.0307
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0291,
+    "cfo_ratio": 0.0082,
+    "ep_peer_rel": 0.0078,
+    "ep_self_pct": 0.0073,
+    "ep_ttm": 0.0201,
+    "fc_surprise": 0.0129,
+    "gm": 0.0125,
+    "gm_chg": 0.0095,
+    "ni_yoy": 0.0119,
+    "rev_yoy": 0.0105,
+    "roe_ann": 0.0154
+   }
+  },
+  "2019": {
+   "fin_share": 0.1398,
+   "top10": [
+    [
+     "log_listed",
+     0.1668
+    ],
+    [
+     "days_since_report",
+     0.0555
+    ],
+    [
+     "emo_lu5",
+     0.0475
+    ],
+    [
+     "emo_ld5",
+     0.047
+    ],
+    [
+     "turn5",
+     0.0409
+    ],
+    [
+     "log_fmv",
+     0.0366
+    ],
+    [
+     "log_price",
+     0.0337
+    ],
+    [
+     "log_amt20",
+     0.0325
+    ],
+    [
+     "emo_prem5",
+     0.0323
+    ],
+    [
+     "bp",
+     0.0284
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0284,
+    "cfo_ratio": 0.0075,
+    "ep_peer_rel": 0.0068,
+    "ep_self_pct": 0.0067,
+    "ep_ttm": 0.0235,
+    "fc_surprise": 0.0101,
+    "gm": 0.0122,
+    "gm_chg": 0.0096,
+    "ni_yoy": 0.0114,
+    "rev_yoy": 0.0089,
+    "roe_ann": 0.0148
+   }
+  },
+  "2020": {
+   "fin_share": 0.1374,
+   "top10": [
+    [
+     "log_listed",
+     0.1561
+    ],
+    [
+     "days_since_report",
+     0.0569
+    ],
+    [
+     "turn5",
+     0.0526
+    ],
+    [
+     "emo_lu5",
+     0.0497
+    ],
+    [
+     "emo_ld5",
+     0.0454
+    ],
+    [
+     "emo_prem5",
+     0.0366
+    ],
+    [
+     "log_fmv",
+     0.0353
+    ],
+    [
+     "log_amt20",
+     0.0316
+    ],
+    [
+     "log_price",
+     0.0286
+    ],
+    [
+     "ep_ttm",
+     0.0253
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0236,
+    "cfo_ratio": 0.0086,
+    "ep_peer_rel": 0.0084,
+    "ep_self_pct": 0.0076,
+    "ep_ttm": 0.0253,
+    "fc_surprise": 0.0121,
+    "gm": 0.0106,
+    "gm_chg": 0.0081,
+    "ni_yoy": 0.0104,
+    "rev_yoy": 0.009,
+    "roe_ann": 0.0137
+   }
+  },
+  "2021": {
+   "fin_share": 0.1346,
+   "top10": [
+    [
+     "log_listed",
+     0.1453
+    ],
+    [
+     "turn5",
+     0.0623
+    ],
+    [
+     "days_since_report",
+     0.0569
+    ],
+    [
+     "emo_lu5",
+     0.0557
+    ],
+    [
+     "emo_ld5",
+     0.0474
+    ],
+    [
+     "emo_prem5",
+     0.0363
+    ],
+    [
+     "log_fmv",
+     0.0359
+    ],
+    [
+     "log_price",
+     0.0291
+    ],
+    [
+     "log_amt20",
+     0.0268
+    ],
+    [
+     "vol60",
+     0.0247
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0222,
+    "cfo_ratio": 0.0086,
+    "ep_peer_rel": 0.0083,
+    "ep_self_pct": 0.0091,
+    "ep_ttm": 0.0208,
+    "fc_surprise": 0.011,
+    "gm": 0.0108,
+    "gm_chg": 0.0084,
+    "ni_yoy": 0.011,
+    "rev_yoy": 0.0095,
+    "roe_ann": 0.0148
+   }
+  },
+  "2022": {
+   "fin_share": 0.1313,
+   "top10": [
+    [
+     "log_listed",
+     0.1587
+    ],
+    [
+     "turn5",
+     0.0691
+    ],
+    [
+     "days_since_report",
+     0.063
+    ],
+    [
+     "emo_lu5",
+     0.0571
+    ],
+    [
+     "emo_ld5",
+     0.0475
+    ],
+    [
+     "log_fmv",
+     0.0351
+    ],
+    [
+     "emo_prem5",
+     0.0346
+    ],
+    [
+     "log_price",
+     0.0292
+    ],
+    [
+     "log_amt20",
+     0.0243
+    ],
+    [
+     "ep_ttm",
+     0.0229
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0206,
+    "cfo_ratio": 0.0078,
+    "ep_peer_rel": 0.008,
+    "ep_self_pct": 0.0083,
+    "ep_ttm": 0.0229,
+    "fc_surprise": 0.01,
+    "gm": 0.0101,
+    "gm_chg": 0.0091,
+    "ni_yoy": 0.0123,
+    "rev_yoy": 0.0095,
+    "roe_ann": 0.0128
+   }
+  },
+  "2023": {
+   "fin_share": 0.1279,
+   "top10": [
+    [
+     "log_listed",
+     0.1545
+    ],
+    [
+     "turn5",
+     0.0841
+    ],
+    [
+     "days_since_report",
+     0.0653
+    ],
+    [
+     "emo_lu5",
+     0.0579
+    ],
+    [
+     "emo_ld5",
+     0.0483
+    ],
+    [
+     "log_fmv",
+     0.0325
+    ],
+    [
+     "emo_prem5",
+     0.0317
+    ],
+    [
+     "log_price",
+     0.0297
+    ],
+    [
+     "log_amt20",
+     0.0258
+    ],
+    [
+     "vol60",
+     0.0252
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0223,
+    "cfo_ratio": 0.0075,
+    "ep_peer_rel": 0.0075,
+    "ep_self_pct": 0.0081,
+    "ep_ttm": 0.0223,
+    "fc_surprise": 0.0095,
+    "gm": 0.0097,
+    "gm_chg": 0.0093,
+    "ni_yoy": 0.0112,
+    "rev_yoy": 0.0094,
+    "roe_ann": 0.0112
+   }
+  }
+ },
+ "H68": {
+  "2016": {
+   "fin_share": 0.2082,
+   "top10": [
+    [
+     "log_listed",
+     0.1313
+    ],
+    [
+     "cal_to_apr30",
+     0.0891
+    ],
+    [
+     "log_price",
+     0.0558
+    ],
+    [
+     "log_fmv",
+     0.0478
+    ],
+    [
+     "bp",
+     0.042
+    ],
+    [
+     "cal_month",
+     0.0417
+    ],
+    [
+     "log_amt20",
+     0.0412
+    ],
+    [
+     "ep_ttm",
+     0.0361
+    ],
+    [
+     "vol60",
+     0.0299
+    ],
+    [
+     "ret60",
+     0.0277
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.042,
+    "cfo_ratio": 0.0141,
+    "ep_peer_rel": 0.0129,
+    "ep_self_pct": 0.0054,
+    "ep_ttm": 0.0361,
+    "fc_surprise": 0.0147,
+    "gm": 0.018,
+    "gm_chg": 0.0145,
+    "ni_yoy": 0.0135,
+    "rev_yoy": 0.0162,
+    "roe_ann": 0.0208
+   }
+  },
+  "2017": {
+   "fin_share": 0.1779,
+   "top10": [
+    [
+     "log_listed",
+     0.1395
+    ],
+    [
+     "cal_to_apr30",
+     0.11
+    ],
+    [
+     "log_amt20",
+     0.0654
+    ],
+    [
+     "cal_month",
+     0.0483
+    ],
+    [
+     "log_price",
+     0.0467
+    ],
+    [
+     "log_fmv",
+     0.0405
+    ],
+    [
+     "bp",
+     0.0393
+    ],
+    [
+     "vol60",
+     0.0325
+    ],
+    [
+     "ep_ttm",
+     0.0289
+    ],
+    [
+     "ret60",
+     0.0243
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0393,
+    "cfo_ratio": 0.0098,
+    "ep_peer_rel": 0.0112,
+    "ep_self_pct": 0.0078,
+    "ep_ttm": 0.0289,
+    "fc_surprise": 0.0147,
+    "gm": 0.0148,
+    "gm_chg": 0.0105,
+    "ni_yoy": 0.0098,
+    "rev_yoy": 0.0143,
+    "roe_ann": 0.0168
+   }
+  },
+  "2018": {
+   "fin_share": 0.1566,
+   "top10": [
+    [
+     "log_listed",
+     0.1648
+    ],
+    [
+     "cal_to_apr30",
+     0.1132
+    ],
+    [
+     "cal_month",
+     0.0471
+    ],
+    [
+     "log_amt20",
+     0.045
+    ],
+    [
+     "log_fmv",
+     0.0419
+    ],
+    [
+     "log_price",
+     0.0412
+    ],
+    [
+     "vol60",
+     0.0408
+    ],
+    [
+     "bp",
+     0.0309
+    ],
+    [
+     "turn5",
+     0.0277
+    ],
+    [
+     "ep_ttm",
+     0.0258
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0309,
+    "cfo_ratio": 0.0085,
+    "ep_peer_rel": 0.0096,
+    "ep_self_pct": 0.0067,
+    "ep_ttm": 0.0258,
+    "fc_surprise": 0.0115,
+    "gm": 0.0128,
+    "gm_chg": 0.0122,
+    "ni_yoy": 0.0121,
+    "rev_yoy": 0.0102,
+    "roe_ann": 0.0163
+   }
+  },
+  "2019": {
+   "fin_share": 0.1505,
+   "top10": [
+    [
+     "log_listed",
+     0.1598
+    ],
+    [
+     "cal_to_apr30",
+     0.1166
+    ],
+    [
+     "cal_month",
+     0.0463
+    ],
+    [
+     "log_fmv",
+     0.0372
+    ],
+    [
+     "log_price",
+     0.037
+    ],
+    [
+     "turn5",
+     0.0369
+    ],
+    [
+     "vol60",
+     0.0313
+    ],
+    [
+     "log_amt20",
+     0.0307
+    ],
+    [
+     "days_since_report",
+     0.0282
+    ],
+    [
+     "ep_ttm",
+     0.0267
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0265,
+    "cfo_ratio": 0.0085,
+    "ep_peer_rel": 0.0084,
+    "ep_self_pct": 0.0067,
+    "ep_ttm": 0.0267,
+    "fc_surprise": 0.0104,
+    "gm": 0.0128,
+    "gm_chg": 0.0119,
+    "ni_yoy": 0.0112,
+    "rev_yoy": 0.0102,
+    "roe_ann": 0.0173
+   }
+  },
+  "2020": {
+   "fin_share": 0.1467,
+   "top10": [
+    [
+     "log_listed",
+     0.1575
+    ],
+    [
+     "cal_to_apr30",
+     0.1125
+    ],
+    [
+     "turn5",
+     0.0474
+    ],
+    [
+     "cal_month",
+     0.0451
+    ],
+    [
+     "log_fmv",
+     0.0393
+    ],
+    [
+     "log_price",
+     0.0345
+    ],
+    [
+     "vol60",
+     0.0294
+    ],
+    [
+     "days_since_report",
+     0.028
+    ],
+    [
+     "ep_ttm",
+     0.0268
+    ],
+    [
+     "log_amt20",
+     0.0267
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0242,
+    "cfo_ratio": 0.0081,
+    "ep_peer_rel": 0.0111,
+    "ep_self_pct": 0.0088,
+    "ep_ttm": 0.0268,
+    "fc_surprise": 0.01,
+    "gm": 0.0124,
+    "gm_chg": 0.0107,
+    "ni_yoy": 0.0119,
+    "rev_yoy": 0.0086,
+    "roe_ann": 0.0143
+   }
+  },
+  "2021": {
+   "fin_share": 0.149,
+   "top10": [
+    [
+     "log_listed",
+     0.1508
+    ],
+    [
+     "cal_to_apr30",
+     0.109
+    ],
+    [
+     "turn5",
+     0.058
+    ],
+    [
+     "cal_month",
+     0.0483
+    ],
+    [
+     "log_fmv",
+     0.0395
+    ],
+    [
+     "log_price",
+     0.033
+    ],
+    [
+     "vol60",
+     0.0312
+    ],
+    [
+     "days_since_report",
+     0.0246
+    ],
+    [
+     "ep_ttm",
+     0.0244
+    ],
+    [
+     "amihud20",
+     0.0242
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0242,
+    "cfo_ratio": 0.0082,
+    "ep_peer_rel": 0.0104,
+    "ep_self_pct": 0.012,
+    "ep_ttm": 0.0244,
+    "fc_surprise": 0.0092,
+    "gm": 0.0125,
+    "gm_chg": 0.0115,
+    "ni_yoy": 0.0124,
+    "rev_yoy": 0.0088,
+    "roe_ann": 0.0153
+   }
+  },
+  "2022": {
+   "fin_share": 0.1406,
+   "top10": [
+    [
+     "log_listed",
+     0.1673
+    ],
+    [
+     "cal_to_apr30",
+     0.1163
+    ],
+    [
+     "turn5",
+     0.0624
+    ],
+    [
+     "cal_month",
+     0.0475
+    ],
+    [
+     "log_fmv",
+     0.0369
+    ],
+    [
+     "log_price",
+     0.0312
+    ],
+    [
+     "turn20",
+     0.0287
+    ],
+    [
+     "vol60",
+     0.0276
+    ],
+    [
+     "days_since_report",
+     0.0267
+    ],
+    [
+     "ma60",
+     0.023
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0213,
+    "cfo_ratio": 0.0079,
+    "ep_peer_rel": 0.009,
+    "ep_self_pct": 0.0102,
+    "ep_ttm": 0.023,
+    "fc_surprise": 0.0083,
+    "gm": 0.0116,
+    "gm_chg": 0.0105,
+    "ni_yoy": 0.0146,
+    "rev_yoy": 0.0086,
+    "roe_ann": 0.0157
+   }
+  },
+  "2023": {
+   "fin_share": 0.1478,
+   "top10": [
+    [
+     "log_listed",
+     0.1568
+    ],
+    [
+     "cal_to_apr30",
+     0.1132
+    ],
+    [
+     "turn5",
+     0.0775
+    ],
+    [
+     "cal_month",
+     0.0478
+    ],
+    [
+     "log_fmv",
+     0.034
+    ],
+    [
+     "log_price",
+     0.0331
+    ],
+    [
+     "vol60",
+     0.0286
+    ],
+    [
+     "turn20",
+     0.0282
+    ],
+    [
+     "days_since_report",
+     0.0281
+    ],
+    [
+     "ep_ttm",
+     0.0249
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0249,
+    "cfo_ratio": 0.0072,
+    "ep_peer_rel": 0.0099,
+    "ep_self_pct": 0.0097,
+    "ep_ttm": 0.0249,
+    "fc_surprise": 0.008,
+    "gm": 0.0138,
+    "gm_chg": 0.0098,
+    "ni_yoy": 0.0135,
+    "rev_yoy": 0.0104,
+    "roe_ann": 0.0158
+   }
+  }
+ },
+ "H60": {
+  "2016": {
+   "fin_share": 0.1937,
+   "top10": [
+    [
+     "log_listed",
+     0.2157
+    ],
+    [
+     "log_fmv",
+     0.0504
+    ],
+    [
+     "log_price",
+     0.0453
+    ],
+    [
+     "log_amt20",
+     0.0432
+    ],
+    [
+     "bp",
+     0.0406
+    ],
+    [
+     "days_since_report",
+     0.0334
+    ],
+    [
+     "peer_turn20",
+     0.0324
+    ],
+    [
+     "ret60",
+     0.0305
+    ],
+    [
+     "vol60",
+     0.0291
+    ],
+    [
+     "ep_ttm",
+     0.0251
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0406,
+    "cfo_ratio": 0.0141,
+    "ep_peer_rel": 0.0082,
+    "ep_self_pct": 0.0057,
+    "ep_ttm": 0.0251,
+    "fc_surprise": 0.0151,
+    "gm": 0.0166,
+    "gm_chg": 0.0151,
+    "ni_yoy": 0.015,
+    "rev_yoy": 0.0166,
+    "roe_ann": 0.0216
+   }
+  },
+  "2017": {
+   "fin_share": 0.1709,
+   "top10": [
+    [
+     "log_listed",
+     0.2235
+    ],
+    [
+     "log_amt20",
+     0.0676
+    ],
+    [
+     "days_since_report",
+     0.0439
+    ],
+    [
+     "log_price",
+     0.0424
+    ],
+    [
+     "log_fmv",
+     0.0397
+    ],
+    [
+     "bp",
+     0.0383
+    ],
+    [
+     "vol60",
+     0.0359
+    ],
+    [
+     "peer_turn20",
+     0.0278
+    ],
+    [
+     "ret60",
+     0.0254
+    ],
+    [
+     "rel_peer_ret20",
+     0.0225
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0383,
+    "cfo_ratio": 0.0111,
+    "ep_peer_rel": 0.0069,
+    "ep_self_pct": 0.0078,
+    "ep_ttm": 0.0214,
+    "fc_surprise": 0.014,
+    "gm": 0.015,
+    "gm_chg": 0.0114,
+    "ni_yoy": 0.0113,
+    "rev_yoy": 0.0154,
+    "roe_ann": 0.0182
+   }
+  },
+  "2018": {
+   "fin_share": 0.1564,
+   "top10": [
+    [
+     "log_listed",
+     0.2321
+    ],
+    [
+     "days_since_report",
+     0.0551
+    ],
+    [
+     "log_amt20",
+     0.0492
+    ],
+    [
+     "vol60",
+     0.0443
+    ],
+    [
+     "log_fmv",
+     0.0404
+    ],
+    [
+     "log_price",
+     0.036
+    ],
+    [
+     "bp",
+     0.0338
+    ],
+    [
+     "peer_turn20",
+     0.0289
+    ],
+    [
+     "turn5",
+     0.0277
+    ],
+    [
+     "ret60",
+     0.025
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0338,
+    "cfo_ratio": 0.0101,
+    "ep_peer_rel": 0.0048,
+    "ep_self_pct": 0.0071,
+    "ep_ttm": 0.0239,
+    "fc_surprise": 0.0123,
+    "gm": 0.0132,
+    "gm_chg": 0.0118,
+    "ni_yoy": 0.0127,
+    "rev_yoy": 0.0114,
+    "roe_ann": 0.0155
+   }
+  },
+  "2019": {
+   "fin_share": 0.1545,
+   "top10": [
+    [
+     "log_listed",
+     0.2215
+    ],
+    [
+     "days_since_report",
+     0.064
+    ],
+    [
+     "turn5",
+     0.0389
+    ],
+    [
+     "log_fmv",
+     0.036
+    ],
+    [
+     "vol60",
+     0.0329
+    ],
+    [
+     "log_amt20",
+     0.0329
+    ],
+    [
+     "log_price",
+     0.0309
+    ],
+    [
+     "bp",
+     0.0266
+    ],
+    [
+     "peer_turn20",
+     0.0264
+    ],
+    [
+     "ep_ttm",
+     0.0263
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0266,
+    "cfo_ratio": 0.01,
+    "ep_peer_rel": 0.0049,
+    "ep_self_pct": 0.0075,
+    "ep_ttm": 0.0263,
+    "fc_surprise": 0.0116,
+    "gm": 0.0133,
+    "gm_chg": 0.0127,
+    "ni_yoy": 0.0135,
+    "rev_yoy": 0.0108,
+    "roe_ann": 0.0174
+   }
+  },
+  "2020": {
+   "fin_share": 0.1451,
+   "top10": [
+    [
+     "log_listed",
+     0.2061
+    ],
+    [
+     "days_since_report",
+     0.063
+    ],
+    [
+     "turn5",
+     0.0508
+    ],
+    [
+     "log_fmv",
+     0.0385
+    ],
+    [
+     "vol60",
+     0.0337
+    ],
+    [
+     "log_price",
+     0.0301
+    ],
+    [
+     "peer_turn20",
+     0.0282
+    ],
+    [
+     "amihud20",
+     0.0276
+    ],
+    [
+     "log_amt20",
+     0.027
+    ],
+    [
+     "ep_ttm",
+     0.0262
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0231,
+    "cfo_ratio": 0.0097,
+    "ep_peer_rel": 0.0046,
+    "ep_self_pct": 0.0091,
+    "ep_ttm": 0.0262,
+    "fc_surprise": 0.0104,
+    "gm": 0.0122,
+    "gm_chg": 0.0108,
+    "ni_yoy": 0.0115,
+    "rev_yoy": 0.0111,
+    "roe_ann": 0.0164
+   }
+  },
+  "2021": {
+   "fin_share": 0.1456,
+   "top10": [
+    [
+     "log_listed",
+     0.1963
+    ],
+    [
+     "days_since_report",
+     0.0632
+    ],
+    [
+     "turn5",
+     0.062
+    ],
+    [
+     "log_fmv",
+     0.0427
+    ],
+    [
+     "vol60",
+     0.0348
+    ],
+    [
+     "log_price",
+     0.0312
+    ],
+    [
+     "peer_turn20",
+     0.0282
+    ],
+    [
+     "log_amt20",
+     0.0246
+    ],
+    [
+     "amihud20",
+     0.0245
+    ],
+    [
+     "ep_ttm",
+     0.0235
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0225,
+    "cfo_ratio": 0.0111,
+    "ep_peer_rel": 0.0054,
+    "ep_self_pct": 0.0115,
+    "ep_ttm": 0.0235,
+    "fc_surprise": 0.0095,
+    "gm": 0.0117,
+    "gm_chg": 0.0115,
+    "ni_yoy": 0.0118,
+    "rev_yoy": 0.0113,
+    "roe_ann": 0.0157
+   }
+  },
+  "2022": {
+   "fin_share": 0.1446,
+   "top10": [
+    [
+     "log_listed",
+     0.2121
+    ],
+    [
+     "days_since_report",
+     0.0693
+    ],
+    [
+     "turn5",
+     0.0688
+    ],
+    [
+     "log_fmv",
+     0.0391
+    ],
+    [
+     "log_price",
+     0.0298
+    ],
+    [
+     "turn20",
+     0.0294
+    ],
+    [
+     "vol60",
+     0.0282
+    ],
+    [
+     "peer_turn20",
+     0.0245
+    ],
+    [
+     "log_amt20",
+     0.0237
+    ],
+    [
+     "ep_ttm",
+     0.0234
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0215,
+    "cfo_ratio": 0.0108,
+    "ep_peer_rel": 0.0051,
+    "ep_self_pct": 0.0113,
+    "ep_ttm": 0.0234,
+    "fc_surprise": 0.011,
+    "gm": 0.0111,
+    "gm_chg": 0.0108,
+    "ni_yoy": 0.0132,
+    "rev_yoy": 0.0112,
+    "roe_ann": 0.0152
+   }
+  },
+  "2023": {
+   "fin_share": 0.1378,
+   "top10": [
+    [
+     "log_listed",
+     0.2179
+    ],
+    [
+     "turn5",
+     0.0808
+    ],
+    [
+     "days_since_report",
+     0.0713
+    ],
+    [
+     "log_fmv",
+     0.0325
+    ],
+    [
+     "vol60",
+     0.0308
+    ],
+    [
+     "turn20",
+     0.0298
+    ],
+    [
+     "log_price",
+     0.0275
+    ],
+    [
+     "log_amt20",
+     0.0263
+    ],
+    [
+     "peer_turn20",
+     0.0251
+    ],
+    [
+     "ma60",
+     0.0242
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0214,
+    "cfo_ratio": 0.0091,
+    "ep_peer_rel": 0.0044,
+    "ep_self_pct": 0.0122,
+    "ep_ttm": 0.0217,
+    "fc_surprise": 0.0099,
+    "gm": 0.0103,
+    "gm_chg": 0.0101,
+    "ni_yoy": 0.0121,
+    "rev_yoy": 0.012,
+    "roe_ann": 0.0145
+   }
+  }
+ },
+ "H53": {
+  "2016": {
+   "fin_share": 0.2479,
+   "top10": [
+    [
+     "log_listed",
+     0.1978
+    ],
+    [
+     "log_fmv",
+     0.064
+    ],
+    [
+     "log_price",
+     0.0513
+    ],
+    [
+     "log_amt20",
+     0.0438
+    ],
+    [
+     "bp",
+     0.0399
+    ],
+    [
+     "days_since_report",
+     0.0373
+    ],
+    [
+     "ep_ttm",
+     0.0358
+    ],
+    [
+     "ret60",
+     0.0342
+    ],
+    [
+     "vol60",
+     0.0291
+    ],
+    [
+     "roe_ann",
+     0.0257
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0399,
+    "cfo_ratio": 0.0199,
+    "ep_peer_rel": 0.0164,
+    "ep_self_pct": 0.007,
+    "ep_ttm": 0.0358,
+    "fc_surprise": 0.0176,
+    "gm": 0.0234,
+    "gm_chg": 0.0205,
+    "ni_yoy": 0.0186,
+    "rev_yoy": 0.0232,
+    "roe_ann": 0.0257
+   }
+  },
+  "2017": {
+   "fin_share": 0.2232,
+   "top10": [
+    [
+     "log_listed",
+     0.2182
+    ],
+    [
+     "log_amt20",
+     0.0797
+    ],
+    [
+     "log_fmv",
+     0.0515
+    ],
+    [
+     "log_price",
+     0.043
+    ],
+    [
+     "bp",
+     0.0409
+    ],
+    [
+     "days_since_report",
+     0.0408
+    ],
+    [
+     "vol60",
+     0.0387
+    ],
+    [
+     "ep_ttm",
+     0.0281
+    ],
+    [
+     "ret60",
+     0.0277
+    ],
+    [
+     "roe_ann",
+     0.024
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0409,
+    "cfo_ratio": 0.0166,
+    "ep_peer_rel": 0.0148,
+    "ep_self_pct": 0.0093,
+    "ep_ttm": 0.0281,
+    "fc_surprise": 0.0158,
+    "gm": 0.019,
+    "gm_chg": 0.017,
+    "ni_yoy": 0.0157,
+    "rev_yoy": 0.0219,
+    "roe_ann": 0.024
+   }
+  },
+  "2018": {
+   "fin_share": 0.2075,
+   "top10": [
+    [
+     "log_listed",
+     0.2296
+    ],
+    [
+     "log_fmv",
+     0.0548
+    ],
+    [
+     "vol60",
+     0.0511
+    ],
+    [
+     "log_amt20",
+     0.0501
+    ],
+    [
+     "days_since_report",
+     0.0471
+    ],
+    [
+     "bp",
+     0.0377
+    ],
+    [
+     "log_price",
+     0.0356
+    ],
+    [
+     "turn5",
+     0.0343
+    ],
+    [
+     "ep_ttm",
+     0.0281
+    ],
+    [
+     "ret60",
+     0.0265
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0377,
+    "cfo_ratio": 0.0131,
+    "ep_peer_rel": 0.0134,
+    "ep_self_pct": 0.0107,
+    "ep_ttm": 0.0281,
+    "fc_surprise": 0.0129,
+    "gm": 0.0184,
+    "gm_chg": 0.0174,
+    "ni_yoy": 0.0159,
+    "rev_yoy": 0.0182,
+    "roe_ann": 0.0217
+   }
+  },
+  "2019": {
+   "fin_share": 0.2035,
+   "top10": [
+    [
+     "log_listed",
+     0.2254
+    ],
+    [
+     "days_since_report",
+     0.0571
+    ],
+    [
+     "log_fmv",
+     0.0494
+    ],
+    [
+     "turn5",
+     0.0417
+    ],
+    [
+     "vol60",
+     0.0414
+    ],
+    [
+     "log_amt20",
+     0.0379
+    ],
+    [
+     "ep_ttm",
+     0.0337
+    ],
+    [
+     "log_price",
+     0.0319
+    ],
+    [
+     "bp",
+     0.0313
+    ],
+    [
+     "amihud20",
+     0.0297
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0313,
+    "cfo_ratio": 0.014,
+    "ep_peer_rel": 0.0108,
+    "ep_self_pct": 0.0109,
+    "ep_ttm": 0.0337,
+    "fc_surprise": 0.0143,
+    "gm": 0.0182,
+    "gm_chg": 0.0177,
+    "ni_yoy": 0.0154,
+    "rev_yoy": 0.0153,
+    "roe_ann": 0.0218
+   }
+  },
+  "2020": {
+   "fin_share": 0.198,
+   "top10": [
+    [
+     "log_listed",
+     0.222
+    ],
+    [
+     "days_since_report",
+     0.056
+    ],
+    [
+     "turn5",
+     0.0554
+    ],
+    [
+     "log_fmv",
+     0.0487
+    ],
+    [
+     "vol60",
+     0.0388
+    ],
+    [
+     "ep_ttm",
+     0.0354
+    ],
+    [
+     "log_amt20",
+     0.0344
+    ],
+    [
+     "log_price",
+     0.0298
+    ],
+    [
+     "bp",
+     0.0293
+    ],
+    [
+     "amihud20",
+     0.0247
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0293,
+    "cfo_ratio": 0.0141,
+    "ep_peer_rel": 0.0116,
+    "ep_self_pct": 0.0129,
+    "ep_ttm": 0.0354,
+    "fc_surprise": 0.0145,
+    "gm": 0.0168,
+    "gm_chg": 0.0159,
+    "ni_yoy": 0.0145,
+    "rev_yoy": 0.014,
+    "roe_ann": 0.0188
+   }
+  },
+  "2021": {
+   "fin_share": 0.1977,
+   "top10": [
+    [
+     "log_listed",
+     0.2229
+    ],
+    [
+     "turn5",
+     0.062
+    ],
+    [
+     "days_since_report",
+     0.0563
+    ],
+    [
+     "log_fmv",
+     0.0449
+    ],
+    [
+     "vol60",
+     0.04
+    ],
+    [
+     "log_amt20",
+     0.0359
+    ],
+    [
+     "ep_ttm",
+     0.0311
+    ],
+    [
+     "log_price",
+     0.0298
+    ],
+    [
+     "bp",
+     0.0265
+    ],
+    [
+     "turn60",
+     0.0232
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0265,
+    "cfo_ratio": 0.016,
+    "ep_peer_rel": 0.0115,
+    "ep_self_pct": 0.0153,
+    "ep_ttm": 0.0311,
+    "fc_surprise": 0.014,
+    "gm": 0.0172,
+    "gm_chg": 0.0154,
+    "ni_yoy": 0.0159,
+    "rev_yoy": 0.0143,
+    "roe_ann": 0.0205
+   }
+  },
+  "2022": {
+   "fin_share": 0.1886,
+   "top10": [
+    [
+     "log_listed",
+     0.2265
+    ],
+    [
+     "turn5",
+     0.0703
+    ],
+    [
+     "days_since_report",
+     0.0604
+    ],
+    [
+     "log_fmv",
+     0.0522
+    ],
+    [
+     "vol60",
+     0.033
+    ],
+    [
+     "log_price",
+     0.0328
+    ],
+    [
+     "log_amt20",
+     0.0303
+    ],
+    [
+     "ep_ttm",
+     0.029
+    ],
+    [
+     "bp",
+     0.0273
+    ],
+    [
+     "turn20",
+     0.0254
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0273,
+    "cfo_ratio": 0.0138,
+    "ep_peer_rel": 0.0099,
+    "ep_self_pct": 0.0133,
+    "ep_ttm": 0.029,
+    "fc_surprise": 0.0124,
+    "gm": 0.0161,
+    "gm_chg": 0.0157,
+    "ni_yoy": 0.0164,
+    "rev_yoy": 0.0151,
+    "roe_ann": 0.0196
+   }
+  },
+  "2023": {
+   "fin_share": 0.1792,
+   "top10": [
+    [
+     "log_listed",
+     0.2345
+    ],
+    [
+     "turn5",
+     0.0835
+    ],
+    [
+     "days_since_report",
+     0.0627
+    ],
+    [
+     "log_fmv",
+     0.0426
+    ],
+    [
+     "log_amt20",
+     0.0342
+    ],
+    [
+     "vol60",
+     0.0336
+    ],
+    [
+     "log_price",
+     0.0321
+    ],
+    [
+     "ep_ttm",
+     0.0301
+    ],
+    [
+     "bp",
+     0.0289
+    ],
+    [
+     "turn60",
+     0.0272
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0289,
+    "cfo_ratio": 0.0119,
+    "ep_peer_rel": 0.0085,
+    "ep_self_pct": 0.0128,
+    "ep_ttm": 0.0301,
+    "fc_surprise": 0.0123,
+    "gm": 0.0153,
+    "gm_chg": 0.0136,
+    "ni_yoy": 0.0137,
+    "rev_yoy": 0.0146,
+    "roe_ann": 0.0174
+   }
+  }
+ },
+ "H71": {
+  "2016": {
+   "fin_share": 0.1808,
+   "top10": [
+    [
+     "log_listed",
+     0.1407
+    ],
+    [
+     "log_price",
+     0.0551
+    ],
+    [
+     "log_fmv",
+     0.0496
+    ],
+    [
+     "log_amt20",
+     0.0442
+    ],
+    [
+     "bp",
+     0.0372
+    ],
+    [
+     "emo_lu5",
+     0.0325
+    ],
+    [
+     "peer_turn20",
+     0.0323
+    ],
+    [
+     "ret60",
+     0.0313
+    ],
+    [
+     "days_since_report",
+     0.0286
+    ],
+    [
+     "ep_ttm",
+     0.0281
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0372,
+    "cfo_ratio": 0.0129,
+    "ep_peer_rel": 0.0066,
+    "ep_self_pct": 0.0039,
+    "ep_ttm": 0.0281,
+    "fc_surprise": 0.0164,
+    "gm": 0.0163,
+    "gm_chg": 0.0119,
+    "ni_yoy": 0.0144,
+    "rev_yoy": 0.0155,
+    "roe_ann": 0.0177
+   }
+  },
+  "2017": {
+   "fin_share": 0.152,
+   "top10": [
+    [
+     "log_listed",
+     0.1514
+    ],
+    [
+     "log_amt20",
+     0.0702
+    ],
+    [
+     "log_price",
+     0.0462
+    ],
+    [
+     "log_fmv",
+     0.0406
+    ],
+    [
+     "emo_lu5",
+     0.039
+    ],
+    [
+     "days_since_report",
+     0.0384
+    ],
+    [
+     "bp",
+     0.0339
+    ],
+    [
+     "vol60",
+     0.0283
+    ],
+    [
+     "emo_ld5",
+     0.0262
+    ],
+    [
+     "peer_turn20",
+     0.025
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0339,
+    "cfo_ratio": 0.0113,
+    "ep_peer_rel": 0.0054,
+    "ep_self_pct": 0.0083,
+    "ep_ttm": 0.0182,
+    "fc_surprise": 0.0148,
+    "gm": 0.0129,
+    "gm_chg": 0.0081,
+    "ni_yoy": 0.0104,
+    "rev_yoy": 0.0126,
+    "roe_ann": 0.0159
+   }
+  },
+  "2018": {
+   "fin_share": 0.1317,
+   "top10": [
+    [
+     "log_listed",
+     0.1581
+    ],
+    [
+     "emo_lu5",
+     0.0485
+    ],
+    [
+     "days_since_report",
+     0.0483
+    ],
+    [
+     "log_amt20",
+     0.0462
+    ],
+    [
+     "log_fmv",
+     0.044
+    ],
+    [
+     "log_price",
+     0.037
+    ],
+    [
+     "emo_prem5",
+     0.0366
+    ],
+    [
+     "emo_ld5",
+     0.0359
+    ],
+    [
+     "vol60",
+     0.0311
+    ],
+    [
+     "peer_turn20",
+     0.028
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0249,
+    "cfo_ratio": 0.0081,
+    "ep_peer_rel": 0.0043,
+    "ep_self_pct": 0.0076,
+    "ep_ttm": 0.018,
+    "fc_surprise": 0.011,
+    "gm": 0.0122,
+    "gm_chg": 0.0088,
+    "ni_yoy": 0.0126,
+    "rev_yoy": 0.0099,
+    "roe_ann": 0.0143
+   }
+  },
+  "2019": {
+   "fin_share": 0.1286,
+   "top10": [
+    [
+     "log_listed",
+     0.1537
+    ],
+    [
+     "days_since_report",
+     0.0552
+    ],
+    [
+     "emo_lu5",
+     0.0496
+    ],
+    [
+     "emo_ld5",
+     0.045
+    ],
+    [
+     "turn5",
+     0.0402
+    ],
+    [
+     "log_fmv",
+     0.0372
+    ],
+    [
+     "log_price",
+     0.0297
+    ],
+    [
+     "emo_prem5",
+     0.0297
+    ],
+    [
+     "log_amt20",
+     0.0294
+    ],
+    [
+     "peer_turn20",
+     0.0257
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0236,
+    "cfo_ratio": 0.0073,
+    "ep_peer_rel": 0.0037,
+    "ep_self_pct": 0.0067,
+    "ep_ttm": 0.0203,
+    "fc_surprise": 0.0099,
+    "gm": 0.0123,
+    "gm_chg": 0.0081,
+    "ni_yoy": 0.0119,
+    "rev_yoy": 0.0099,
+    "roe_ann": 0.0149
+   }
+  },
+  "2020": {
+   "fin_share": 0.1233,
+   "top10": [
+    [
+     "log_listed",
+     0.1462
+    ],
+    [
+     "days_since_report",
+     0.0552
+    ],
+    [
+     "turn5",
+     0.0546
+    ],
+    [
+     "emo_lu5",
+     0.0484
+    ],
+    [
+     "emo_ld5",
+     0.0418
+    ],
+    [
+     "log_fmv",
+     0.0376
+    ],
+    [
+     "emo_prem5",
+     0.0309
+    ],
+    [
+     "log_price",
+     0.0286
+    ],
+    [
+     "log_amt20",
+     0.0279
+    ],
+    [
+     "peer_turn20",
+     0.0253
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0223,
+    "cfo_ratio": 0.0078,
+    "ep_peer_rel": 0.0046,
+    "ep_self_pct": 0.0072,
+    "ep_ttm": 0.0191,
+    "fc_surprise": 0.0111,
+    "gm": 0.0103,
+    "gm_chg": 0.0081,
+    "ni_yoy": 0.0099,
+    "rev_yoy": 0.0097,
+    "roe_ann": 0.0132
+   }
+  },
+  "2021": {
+   "fin_share": 0.1211,
+   "top10": [
+    [
+     "log_listed",
+     0.1362
+    ],
+    [
+     "turn5",
+     0.0642
+    ],
+    [
+     "days_since_report",
+     0.0583
+    ],
+    [
+     "emo_lu5",
+     0.0549
+    ],
+    [
+     "emo_ld5",
+     0.0437
+    ],
+    [
+     "log_fmv",
+     0.0357
+    ],
+    [
+     "emo_prem5",
+     0.0319
+    ],
+    [
+     "log_price",
+     0.0293
+    ],
+    [
+     "peer_turn20",
+     0.0272
+    ],
+    [
+     "vol60",
+     0.0246
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0186,
+    "cfo_ratio": 0.0085,
+    "ep_peer_rel": 0.0038,
+    "ep_self_pct": 0.0093,
+    "ep_ttm": 0.0202,
+    "fc_surprise": 0.0111,
+    "gm": 0.0102,
+    "gm_chg": 0.0072,
+    "ni_yoy": 0.0103,
+    "rev_yoy": 0.0088,
+    "roe_ann": 0.0132
+   }
+  },
+  "2022": {
+   "fin_share": 0.1222,
+   "top10": [
+    [
+     "log_listed",
+     0.1487
+    ],
+    [
+     "turn5",
+     0.0717
+    ],
+    [
+     "days_since_report",
+     0.0637
+    ],
+    [
+     "emo_lu5",
+     0.0599
+    ],
+    [
+     "emo_ld5",
+     0.0428
+    ],
+    [
+     "log_fmv",
+     0.035
+    ],
+    [
+     "emo_prem5",
+     0.0317
+    ],
+    [
+     "log_price",
+     0.0274
+    ],
+    [
+     "emo_zb5",
+     0.0239
+    ],
+    [
+     "peer_turn20",
+     0.0238
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0203,
+    "cfo_ratio": 0.0077,
+    "ep_peer_rel": 0.0048,
+    "ep_self_pct": 0.0083,
+    "ep_ttm": 0.0195,
+    "fc_surprise": 0.0093,
+    "gm": 0.0099,
+    "gm_chg": 0.0084,
+    "ni_yoy": 0.0105,
+    "rev_yoy": 0.0111,
+    "roe_ann": 0.0124
+   }
+  },
+  "2023": {
+   "fin_share": 0.118,
+   "top10": [
+    [
+     "log_listed",
+     0.1447
+    ],
+    [
+     "turn5",
+     0.0867
+    ],
+    [
+     "days_since_report",
+     0.0645
+    ],
+    [
+     "emo_lu5",
+     0.0579
+    ],
+    [
+     "emo_ld5",
+     0.0459
+    ],
+    [
+     "log_fmv",
+     0.0316
+    ],
+    [
+     "emo_prem5",
+     0.0305
+    ],
+    [
+     "log_price",
+     0.027
+    ],
+    [
+     "peer_turn20",
+     0.0268
+    ],
+    [
+     "vol60",
+     0.0235
+    ]
+   ],
+   "fin_each": {
+    "bp": 0.0203,
+    "cfo_ratio": 0.0073,
+    "ep_peer_rel": 0.0031,
+    "ep_self_pct": 0.0092,
+    "ep_ttm": 0.0196,
+    "fc_surprise": 0.0096,
+    "gm": 0.0093,
+    "gm_chg": 0.0073,
+    "ni_yoy": 0.0097,
+    "rev_yoy": 0.0109,
+    "roe_ann": 0.0116
+   }
+  }
+ }
+}

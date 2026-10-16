@@ -17,6 +17,8 @@ for h in sys.argv[1:]:
     sp = SPECS[(h, "base")]
     lab = Lab()
     md = lab.md
+    from signals import peer_sets
+    peer_sets(md)                                    # 先算同伴，避开建面板时的内存峰值（同 cache_scores）
     ext = load_ext_plus(md, sp)
     extra = {k: sp[k] for k in ("keep", "model", "rank_inputs", "window_years", "label", "universe") if k in sp}
     ml._IMP.clear()
