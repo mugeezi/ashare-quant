@@ -86,6 +86,8 @@ SPECS = {
     ("H67s", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, emo=True, seeds=(7, 11, 13)),
     ("H78", "base"): dict(H=20, use_events=True, hold=10, plus="margin", regime=True, combo=["H67", "H60"]),
     ("H79", "base"): dict(H=30, use_events=True, hold=10, plus="margin", regime=True, emo=True),
+    ("H80", "base"): dict(H=1, use_events=True, hold=1, plus="margin", emo=True, label="on1"),
+    ("H81", "base"): dict(H=1, use_events=True, hold=1, plus="margin", emo=True, label="cc1"),
     ("H37", "base"): dict(H=20, use_events=True, hold=10, plus="fin", multi=True),
     ("S05", "base"): dict(H=20, use_events=True, hold=10, plus="fin", model="tree", rank_inputs=True,
                           keep={k for k, _ in __import__("families").SCORECARD}),

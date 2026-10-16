@@ -191,6 +191,69 @@ def main():
     check("仓位控制：target_n 从 4 降到 2 后持仓数随之下降", npos[3] == 4 and npos[-1] == 2,
           f"第 3 日 {npos[3]} 只，最后一日 {npos[-1]} 只")
 
+    # U13 盘中止盈：买入次日最高价触及目标价，按目标价成交；买入当日触及不卖（T+1）
+    md = make_md()
+    md.a["high"][1, 0] = 11.0                           # 买入当日（序号 1）最高 11：T+1 不能卖
+    md.a["high"][3, 0] = 10.6                           # 序号 3 最高 10.6 ≥ 10×1.05
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=10, take_profit=0.05)).run()
+    s = r.trades[r.trades.side == "sell"]
+    ok = len(s) == 1 and md.dates.get_loc(s.iloc[0].date) == 3 and abs(s.iloc[0].price - 10.5 * 0.999) < 1e-9
+    check("止盈：T+1 后最高价触及目标价按目标价成交", ok, f"{s[['date', 'price', 'reason']].values.tolist()}")
+    md = make_md()
+    md.a["open"][2, 0] = 10.8
+    md.a["high"][2, 0] = 10.8
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=10, take_profit=0.05)).run()
+    s = r.trades[r.trades.side == "sell"]
+    check("止盈：开盘已高于目标价按开盘价成交", len(s) == 1 and abs(s.iloc[0].price - 10.8 * 0.999) < 1e-9)
+
+    # U14 盘中止损：最低价触及止损价按止损价成交；同日既触及止盈又触及止损按止损
+    md = make_md()
+    md.a["low"][3, 0] = 9.2
+    md.a["high"][3, 0] = 10.8
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=10, take_profit=0.05, stop_loss=0.07)).run()
+    s = r.trades[r.trades.side == "sell"]
+    check("止损：同日触及止盈与止损按止损价", len(s) == 1 and s.iloc[0].reason == "stop_loss"
+          and abs(s.iloc[0].price - 9.3 * 0.999) < 1e-9, f"{s[['price', 'reason']].values.tolist()}")
+
+    # U15 收盘买入（尾盘）：t 日收盘买，含额外滑点；hold_days=1 次日开盘卖
+    md = make_md()
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=1, buy_at="close", tail_slip=0.002)).run()
+    b, s = r.trades[r.trades.side == "buy"], r.trades[r.trades.side == "sell"]
+    ok = (len(b) == 1 and md.dates.get_loc(b.iloc[0].date) == 0 and abs(b.iloc[0].price - 10 * 1.003) < 1e-9
+          and len(s) == 1 and md.dates.get_loc(s.iloc[0].date) == 1)
+    check("尾盘买入：当日收盘买、次日开盘卖", ok, f"买 {b.date.tolist()} 卖 {s.date.tolist()}")
+    md = make_md()
+    md.a["close"][0, 0] = md.a["up_limit"][0, 0]
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=1, buy_at="close")).run()
+    check("尾盘买入：收盘涨停封板买不进", (r.trades.side == "buy").sum() == 0 if len(r.trades) else True)
+
+    # U16 收盘卖出：hold_days=1、收盘买入 → 次日收盘卖（不能当日卖）；盘中止盈优先
+    md = make_md()
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=1, buy_at="close", sell_at="close")).run()
+    s = r.trades[r.trades.side == "sell"]
+    check("收盘卖出：次日收盘卖出", len(s) == 1 and md.dates.get_loc(s.iloc[0].date) == 1)
+    md = make_md()
+    md.a["high"][1, 0] = 10.4
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=1, buy_at="close", sell_at="close", take_profit=0.03)).run()
+    s = r.trades[r.trades.side == "sell"]
+    check("收盘卖出：次日盘中触及止盈先按目标价卖", len(s) == 1 and s.iloc[0].reason == "take_profit"
+          and abs(s.iloc[0].price - 10.3 * 0.999) < 1e-9)
+
+    # U17 回调限价买入 / 不追高开
+    md = make_md()
+    md.a["low"][1, 0] = 9.85
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=3, buy_dip=0.01)).run()
+    b = r.trades[r.trades.side == "buy"]
+    check("回调买入：最低价触及 前收×0.99 按限价成交", len(b) == 1 and abs(b.iloc[0].price - 9.9 * 1.001) < 1e-9)
+    md = make_md()
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=3, buy_dip=0.01)).run()
+    check("回调买入：未触及限价不成交", (r.trades.side == "buy").sum() == 0 if len(r.trades) else True)
+    md = make_md()
+    md.a["open"][1, 0] = 10.6
+    md.a["high"][1, 0] = 10.6
+    r = Backtest(md, Fixed([0], once=True), cfg(md, hold_days=3, max_gap=0.05)).run()
+    check("不追高开：高开 6% 放弃买入", (r.trades.side == "buy").sum() == 0 if len(r.trades) else True)
+
     n_bad = sum(1 for _, ok, _ in RESULTS if not ok)
     print(f"\n共 {len(RESULTS)} 项，失败 {n_bad} 项")
     return RESULTS

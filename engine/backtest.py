@@ -53,6 +53,15 @@ class Config:
     renew: bool = False                 # 续持：到期时若仍在当日候选前 renew_k 名，则不卖出、重新计算持有期
     renew_k: int | None = None          # 滞后带宽度，默认 3 × n_target
     buy_top: int | None = None          # 新买入只从候选前 buy_top 名中选；默认 renew 时 = n_target，否则 = max_candidates
+    # ---- 买卖点扩展（2026-10-15 加入；默认值下行为与原引擎完全一致）
+    take_profit: float | None = None    # 固定止盈：盘中最高价触及 买入价×(1+tp) 即按目标价成交（开盘已高于目标则按开盘价）
+    tp_vol_k: float | None = None       # 波动率止盈：tp = k × 买入前 20 日平均振幅（(高−低)/收盘）
+    stop_loss: float | None = None      # 盘中止损：最低价触及 买入价×(1−sl) 即按止损价成交（开盘已低于则按开盘价）
+    buy_at: str = "open"                # "open"：次日开盘买；"close"：当日收盘买（尾盘买入近似）
+    sell_at: str = "open"               # "open"：到期次日开盘卖；"close"：到期当日收盘卖
+    tail_slip: float = 0.0              # 收盘买入的额外滑点（收盘价近似 14:50 价格的补偿）
+    buy_dip: float | None = None        # 回调限价买入：挂 前收×(1−d) 的限价单，开盘更低按开盘价，盘中最低价触及按限价，否则不成交
+    max_gap: float | None = None        # 不追高开：开盘相对前收涨幅超过 g 则放弃买入
 
     def __post_init__(self):
         if self.renew_k is None:
@@ -80,6 +89,8 @@ class Position:
     entry_code: str = ""
     hold_start: int = -1    # 当前持有期的起点（续持后更新为续持决定日的下一交易日）
     renewals: int = 0
+    tp: float = math.nan    # 本笔止盈幅度（买入时确定）
+    entry_raw: float = math.nan   # 买入当日的未复权成交基准价（不含滑点），用于盘中止盈止损目标价
 
 
 class Backtest:
@@ -98,6 +109,11 @@ class Backtest:
         self.exit_cash = ex["cash"].values
         self.exit_target = ex["target_code"].values
         self.idx = md.index_close["zzqz"].ffill().values
+        self.rng20 = None
+        if cfg.tp_vol_k:
+            with np.errstate(invalid="ignore", divide="ignore"):
+                r = np.where(self.TS == 1, (self.H - self.L) / self.C, np.nan)
+            self.rng20 = pd.DataFrame(r).rolling(20, min_periods=10).mean().values
 
     # ------------------------------------------------------------------ 规则判断
     def eligible(self, t: int) -> np.ndarray:
@@ -135,6 +151,30 @@ class Backtest:
                     and o / self.PC[t, c] - 1 <= -(self.LP[t, c] - 0.01)):
                 return "exright_conservative"
         return ""
+
+    def _tp(self, t_info: int, c: int) -> float:
+        """买入时确定本笔止盈幅度；t_info 为可用信息的最后一天。策略可提供 tp_for(t, c) 自定。"""
+        if hasattr(self.s, "tp_for"):
+            v = self.s.tp_for(t_info, c)
+            if v is not None:
+                return float(v)
+        if self.cfg.tp_vol_k and self.rng20 is not None and t_info >= 0:
+            r = self.rng20[t_info, c]
+            return float(self.cfg.tp_vol_k * r) if np.isfinite(r) else math.nan
+        return float(self.cfg.take_profit) if self.cfg.take_profit else math.nan
+
+    def _sell(self, p, t, px_raw, why, trades, close_rt, extra=0.0) -> float:
+        cfg = self.cfg
+        sh = self.cur_shares(p, t)
+        px = px_raw * (1 - self.slip - (extra if cfg.costs else 0.0))
+        amt = sh * px
+        com = commission(amt) if cfg.costs else 0.0
+        stp = stamp_tax(amt, self.md.dates[t]) if cfg.costs else 0.0
+        proceeds = amt - com - stp
+        trades.append(dict(date=self.md.dates[t], code=self.md.codes[p.c], side="sell", price=px, shares=sh, amount=amt,
+                           commission=com, stamp=stp, reason=why))
+        close_rt(p, t, proceeds, why)
+        return proceeds
 
     def cur_shares(self, p: Position, t: int) -> float:
         adj = self.ADJ[t, p.c]
@@ -199,9 +239,9 @@ class Backtest:
                         close_rt(p, t, 0.0, f"writeoff_{cls}")
                         positions.remove(p)
                         bump(stat["exits"], f"writeoff_{cls}")
-            # 2) 卖出
+            # 2) 卖出（开盘）
             for p in list(positions):
-                if not p.pending:
+                if not p.pending or cfg.sell_at != "open":
                     continue
                 why = self.sell_block(t, p.c)
                 if why:
@@ -227,7 +267,7 @@ class Backtest:
                 positions.remove(p)
             # 3) 买入
             slots = cur_target - len(positions)
-            if slots > 0 and len(cands):
+            if slots > 0 and len(cands) and cfg.buy_at == "open":
                 alloc = nav_prev / cfg.n_target
                 held = {p.c for p in positions}
                 for c in cands:
@@ -242,7 +282,19 @@ class Backtest:
                         if why == "exright_conservative":
                             stat["exright_extra_buy"] += 1
                         continue
-                    px = self.O[t, c] * (1 + self.slip)
+                    base_px = self.O[t, c]
+                    if cfg.max_gap is not None and base_px / self.PC[t, c] - 1 > cfg.max_gap:
+                        bump(stat["buy_block"], "gap_too_high")
+                        continue
+                    if cfg.buy_dip is not None:
+                        lim = self.PC[t, c] * (1 - cfg.buy_dip)
+                        if base_px > lim:
+                            if self.L[t, c] <= lim:
+                                base_px = lim
+                            else:
+                                bump(stat["buy_block"], "dip_not_filled")
+                                continue
+                    px = base_px * (1 + self.slip)
                     budget = min(alloc, cash)
                     rate = COMMISSION_RATE if cfg.costs else 0.0
                     shares = math.floor(budget / (px * (1 + rate)) / 100) * 100
@@ -253,12 +305,41 @@ class Backtest:
                         continue
                     cash -= amt + com
                     positions.append(Position(c=c, shares=shares, adj_entry=self.ADJ[t, c], entry_t=t, entry_px=px,
-                                              cost=amt + com, entry_code=md.codes[c], hold_start=t))
+                                              cost=amt + com, entry_code=md.codes[c], hold_start=t,
+                                              entry_raw=base_px, tp=self._tp(t - 1, c)))
                     trades.append(dict(date=date, code=md.codes[c], side="buy", price=px, shares=shares, amount=amt,
                                        commission=com, stamp=0.0, reason=""))
                     stat["buys"] += 1
                     held.add(c)
                     slots -= 1
+            # 3b) 盘中止盈 / 止损（遵守 T+1：买入当日不卖）
+            if cfg.take_profit or cfg.tp_vol_k or cfg.stop_loss or hasattr(self.s, "tp_for"):
+                for p in list(positions):
+                    if (p.pending and cfg.sell_at == "open") or p.entry_t >= t or p.origin or not (p.entry_raw > 0):
+                        continue
+                    c = p.c
+                    if self.TS[t, c] != 1 or not (self.O[t, c] > 0) or not (self.ADJ[t, c] > 0):
+                        continue
+                    k = p.adj_entry / self.ADJ[t, c]               # 除权后目标价按复权因子折算
+                    o, hi, lo = self.O[t, c], self.H[t, c], self.L[t, c]
+                    px_raw, why = None, ""
+                    if cfg.stop_loss:
+                        sl_px = p.entry_raw * (1 - cfg.stop_loss) * k
+                        if o <= sl_px:
+                            if not (self.NL[t, c] == 0 and o <= self.DL[t, c] + TOL):
+                                px_raw, why = o, "stop_loss"
+                        elif lo <= sl_px and not (self.NL[t, c] == 0 and sl_px <= self.DL[t, c] + TOL):
+                            px_raw, why = sl_px, "stop_loss"         # 同日既触止盈又触止损：保守按止损
+                    if px_raw is None and p.tp > 0:
+                        tp_px = p.entry_raw * (1 + p.tp) * k
+                        if o >= tp_px:
+                            px_raw, why = o, "take_profit"
+                        elif hi >= tp_px:
+                            px_raw, why = tp_px, "take_profit"
+                    if px_raw is not None:
+                        cash += self._sell(p, t, px_raw, why, trades, close_rt)
+                        positions.remove(p)
+                        bump(stat["exits"], why)
             # 4) 收盘估值
             mv = 0.0
             for p in positions:
@@ -312,6 +393,63 @@ class Backtest:
                         n_keep -= 1
                 elif hasattr(self.s, "should_exit") and self.s.should_exit(t, View(md, t), p):
                     p.pending, p.reason = True, "strategy_exit"
+            # 6b) 收盘卖出（sell_at="close"）：到期当日收盘卖，遵守 T+1；收盘跌停封板卖不出
+            if cfg.sell_at == "close":
+                for p in list(positions):
+                    if not p.pending or p.entry_t >= t:
+                        continue
+                    c = p.c
+                    if self.TS[t, c] != 1 or not (self.C[t, c] > 0) or (self.NL[t, c] == 0 and self.C[t, c] <= self.DL[t, c] + TOL):
+                        bump(stat["sell_block_days"], "close_blocked")
+                        p.locked_days += 1
+                        continue
+                    if not (p.adj_entry > 0):
+                        p.adj_entry = self.ADJ[t, c] if self.ADJ[t, c] > 0 else 1.0
+                    cash += self._sell(p, t, self.C[t, c], p.reason, trades, close_rt, extra=cfg.tail_slip)
+                    positions.remove(p)
+            # 6c) 收盘买入（buy_at="close"，尾盘买入近似）：用当日候选，收盘涨停封板买不进
+            if cfg.buy_at == "close" and t < t1:
+                slots = cur_target - len(positions)
+                alloc = nav / cfg.n_target
+                held = {p.c for p in positions}
+                for c in ranked[: cfg.buy_top]:
+                    if slots <= 0:
+                        break
+                    if c in held:
+                        continue
+                    stat["buy_attempts"] += 1
+                    cl = self.C[t, c]
+                    if self.TS[t, c] != 1 or not (cl > 0):
+                        bump(stat["buy_block"], "suspended")
+                        continue
+                    if self.NL[t, c] == 0 and cl >= self.UL[t, c] - TOL:
+                        bump(stat["buy_block"], "limit_up_close")
+                        continue
+                    px = cl * (1 + self.slip + (cfg.tail_slip if cfg.costs else 0.0))
+                    budget = min(alloc, cash)
+                    rate = COMMISSION_RATE if cfg.costs else 0.0
+                    shares = math.floor(budget / (px * (1 + rate)) / 100) * 100
+                    amt = shares * px
+                    com = commission(amt) if cfg.costs else 0.0
+                    if shares < 100 or amt + com > cash:
+                        stat["insufficient_lot"] += 1
+                        continue
+                    cash -= amt + com
+                    np_ = Position(c=c, shares=shares, adj_entry=self.ADJ[t, c], entry_t=t, entry_px=px, cost=amt + com,
+                                   entry_code=md.codes[c], hold_start=t, entry_raw=cl, tp=self._tp(t, c),
+                                   last_value=shares * cl)
+                    if cfg.hold_days - 1 <= 0:
+                        np_.pending, np_.reason = True, "hold_days"
+                    positions.append(np_)
+                    trades.append(dict(date=date, code=md.codes[c], side="buy", price=px, shares=shares, amount=amt,
+                                       commission=com, stamp=0.0, reason="close"))
+                    stat["buys"] += 1
+                    held.add(c)
+                    slots -= 1
+            if cfg.buy_at == "close" or cfg.sell_at == "close":     # 收盘成交后重新估值
+                nav = cash + sum(p.last_value for p in positions)
+                navs[-1] = (date, nav, cash, len(positions), sum(p.pending for p in positions))
+                nav_prev = nav
             # 7) 次日买入候选
             cands = ranked[: cfg.buy_top]
         nav = pd.DataFrame(navs, columns=["date", "nav", "cash", "n_pos", "n_pending"]).set_index("date")

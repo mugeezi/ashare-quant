@@ -115,7 +115,16 @@ def walk_forward_scores(md, ext=None, H=10, first_year=2016, last_year=2023, str
             fwd[ok] = ret + 0.5 * mae
         y = pd.Series(fwd).groupby(ti).rank(pct=True).values - 0.5
         del fmin, Lw
-    if label == "top10":                                  # 二分类：是否进入当日截面前 10%
+    if label in ("on1", "cc1"):                              # 超短线标签：on1 = t 日收盘→t+1 开盘（隔夜）；cc1 = t 收盘→t+1 收盘
+        Cc = hfq(md, "close")
+        nxt = hfq(md, "open") if label == "on1" else Cc
+        fwd = np.full(len(ti), np.nan)
+        ok = ti + 2 < md.T
+        with np.errstate(invalid="ignore", divide="ignore"):
+            fwd[ok] = nxt[ti[ok] + 1, ji[ok]] / Cc[ti[ok], ji[ok]] - 1
+        y = pd.Series(fwd).groupby(ti).rank(pct=True).values - 0.5
+        del Cc, nxt
+    if label == "top10":                                # 二分类：是否进入当日截面前 10%
         y = np.where(np.isfinite(y), (y >= 0.4).astype(float), np.nan)
     if universe == "large":                                  # 只在当日流通市值前 50% 的股票中训练和选股
         vi = names.index("log_fmv")
