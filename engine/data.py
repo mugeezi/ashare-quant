@@ -54,22 +54,27 @@ def load_market(start: str = "2013-06-01", end: str = "2023-12-31", final_test: 
         if pd.Timestamp(end) >= pd.Timestamp(TEST_START):
             raise PermissionError("研究阶段回测区间不得进入测试集（2024-01-01 起）")
         df = load_panel(columns=cols)
-    df = df[(df["date"] >= start) & (df["date"] <= end)]
+    keep = (df["date"] >= start) & (df["date"] <= end)
+    if not keep.all():                                      # 全区间时不复制（降低内存峰值；结果与逐列复制完全相同）
+        df = df[keep]
+    del keep
     dates = pd.DatetimeIndex(np.sort(df["date"].unique()))
     codes = np.sort(df["code"].unique())
     di = dates.searchsorted(df["date"].values)
     ci = np.searchsorted(codes, df["code"].values)
+    df = df.drop(columns=["date", "code"])
     T, N = len(dates), len(codes)
     a = {}
-    for c in FLOAT_COLS:
+    for c in FLOAT_COLS:                                    # 逐列取出后即释放，内存峰值约减半
         arr = np.full((T, N), np.nan, dtype=np.float64 if c in ("open", "high", "low", "close", "preclose",
                                                                 "up_limit", "down_limit", "adj_factor") else np.float32)
-        arr[di, ci] = df[c].values
+        arr[di, ci] = df.pop(c).values
         a[c] = arr
     for c in INT_COLS:
         arr = np.zeros((T, N), dtype=np.int32 if c == "days_listed" else np.int8)
-        arr[di, ci] = df[c].fillna(0).values
+        arr[di, ci] = df.pop(c).fillna(0).values
         a[c] = arr
+    del df, di, ci
     # 前 20 个交易日平均成交额（含当日；停牌日成交额按 0 计，不在市的日子不计入）
     amt = np.nan_to_num(a["amount"].astype(np.float64), nan=0.0)
     listed = ~np.isnan(a["close"])

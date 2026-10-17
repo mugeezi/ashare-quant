@@ -30,6 +30,8 @@ def main():
         DE.PERIOD_FIRST = DE.FIN_FIRST = "2023-03-31"
         DE.NOTICE_MIN = "2023-05-01"
         DE.log_download = lambda *x, **k: None                # 演练不写下载日志
+        import common
+        common.log_test_access = lambda *x, **k: None         # 演练的截止日在研究期内，不涉及测试期访问
     else:
         if not (ROOT / "FINAL_TEST_APPROVED").exists():
             raise SystemExit("未找到 FINAL_TEST_APPROVED：最终测试未获批，不能下载测试期数据")

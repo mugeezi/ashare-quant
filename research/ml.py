@@ -55,7 +55,11 @@ def make_panel(md, ext, H, max_year=None, keep=None, rank_inputs=False):
     ti, ji = np.where(el)
     names = []
     cap = 96
-    X = np.empty((len(ti), cap), dtype=np.float32, order="F")   # 列优先预分配：未用到的列不占物理内存
+    if os.environ.get("PANEL_MEMMAP_DIR"):                   # 最终测试用：面板放在磁盘映射文件上（数值完全相同，只降低内存峰值）
+        X = np.memmap(os.path.join(os.environ["PANEL_MEMMAP_DIR"], "panel_X.dat"), dtype=np.float32, mode="w+",
+                      shape=(len(ti), cap), order="F")
+    else:
+        X = np.empty((len(ti), cap), dtype=np.float32, order="F")   # 列优先预分配：未用到的列不占物理内存
     for name, arr in FE.build(md, ext):
         if keep is not None and name not in keep:
             del arr
