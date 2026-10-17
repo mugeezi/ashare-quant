@@ -385,9 +385,9 @@ def main(phase):
     T = T[T.done & (s.t.values[T.i] >= int(md.dates.searchsorted(pd.Timestamp("2014-01-01"))))]
     # 65 种组合的整体统计（训练期：卖出日 ≤ 2020-12-31）
     first = lambda y: int(md.dates.searchsorted(pd.Timestamp(f"{y}-01-01")))  # noqa: E731
-    years = range(2016, 2021) if phase == "train" else range(2016, 2024)
+    years = range(2016, 2021) if phase == "train" else range(2021, 2024)
     tables, infos = {}, {}
-    for Y in years:
+    for Y in (years if phase == "train" else []):               # 验证期只运行静态最优，不计算自适应的选择表
         avail = T[T.exit_t < first(Y)]
         tab, glob, info = choose(avail)
         tables[Y] = tab
@@ -396,6 +396,8 @@ def main(phase):
     static_pool = T[T.exit_t <= int(md.dates.searchsorted(pd.Timestamp("2020-12-31"), side="right")) - 1]
     st_g = static_pool.groupby(["method", "rule"]).ret.agg(["mean", "std", "count"])
     static = st_g["mean"].idxmax()
+    if phase == "valid":
+        assert static == ("S5", "SL1.0_TP3.0_N5"), static            # 与训练期登记的方案一致（只用卖出日 ≤ 2020-12-31 的交易）
     st_g.reset_index().to_csv(OUT / f"combos_2014_2020_{phase}.csv", index=False)
     static_tab = {Y: {c: static for c in range(8)} for Y in years}
     orig_tab = {Y: {c: ("S1", "ORIG") for c in range(8)} for Y in years}
@@ -403,7 +405,8 @@ def main(phase):
     bench = md.index_close["zzqz"]
     d0, d1 = ("2016-01-01", "2020-12-31") if phase == "train" else ("2021-01-01", "2023-12-31")
     out = {}
-    for name, tab in (("自适应", tables), ("静态最优", static_tab), ("用户原始规则", orig_tab)):
+    runs = (("自适应", tables), ("静态最优", static_tab), ("用户原始规则", orig_tab)) if phase == "train" else (("静态最优", static_tab),)
+    for name, tab in runs:
         for asm in ASSUME:
             nav, tr = portfolio(md, s, res, P0, tab, asm, d0, d1)
             out[f"{name}|{asm}"] = report(nav, tr, bench, lab.smb)
@@ -421,6 +424,16 @@ def main(phase):
             lab.log_trial("D03", f"portfolio_{name}", "train", {"assume": "cons"},
                           f"D03 组合模拟 2016–2020 保守假设：年化 {x['年化']:.2%}，超额 {x['超额']:.2%}，回撤 {x['最大回撤']:.2%}",
                           excess_cagr=x["超额"], max_drawdown=x["最大回撤"], cagr=x["年化"])
+    if phase == "valid":
+        from framework import append_exp
+        x = out["静态最优|cons"]
+        exp = read_exp()
+        ypos = sum(v > 0 for v in x["分年超额"].values())
+        append_exp(dict(exp_id=f"E{len(exp) + 1:04d}", hyp_id="D03", variant="portfolio_静态最优", split="valid",
+                        run_time=time.strftime("%Y-%m-%d %H:%M"), params=json.dumps({"scheme": "S5|SL1.0_TP3.0_N5", "assume": "cons"}),
+                        cagr=x["年化"], excess_cagr=x["超额"], max_drawdown=x["最大回撤"], years_excess_pos=f"{ypos}/3",
+                        trial_no=len(exp) + 1, valid_use_no=1,
+                        notes="D03 静态最优验证集（事先规则：自适应不优于静态最优，静态最优训练期达标）"))
     log("完成")
 
 
