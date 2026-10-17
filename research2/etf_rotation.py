@@ -28,13 +28,17 @@ def load_index(name: str) -> pd.Series:
 
 
 def adjusted(df: pd.DataFrame) -> pd.DataFrame:
-    """复权价：不复权收盘价日收益；分红 / 折算日（后复权与不复权日收益差 > 0.3%）改用后复权日收益。"""
+    """复权价：不复权收盘价日收益；分红 / 拆分日改用后复权日收益（除以仿射系数 k）。
+    腾讯后复权价是仿射调整（hfq = a·raw + b），平日 hr ≈ k·rr。分红 / 拆分日判定（两条同时满足，只用 t 日及以前数据）：
+      hr − rr > 0.3% + 0.2|rr|，且 hr − k·rr > 0.3% + 0.1|rr|，k = 过去 20 日 Σhr·rr / Σrr²（限制在 0.5–2）。"""
     df = df.sort_values("date").set_index("date")
     df = df[df.raw_close.notna() & (df.raw_volume > 0)]
     rr = df.raw_close.pct_change()
     hr = df.hfq_close.pct_change()
-    ev = (hr - rr).abs() > 0.003
-    r = rr.where(~ev, hr).fillna(0.0)
+    k = ((hr * rr).rolling(20, min_periods=10).sum() / (rr * rr).rolling(20, min_periods=10).sum()).shift(1)
+    k = k.clip(0.5, 2).fillna(1.0)
+    ev = ((hr - k * rr) > 0.003 + 0.1 * rr.abs()) & ((hr - rr) > 0.003 + 0.2 * rr.abs())
+    r = rr.where(~ev, hr / k).fillna(0.0)
     out = pd.DataFrame(index=df.index)
     out["close"] = (1 + r).cumprod()
     out["open"] = df.raw_open * out["close"] / df.raw_close
