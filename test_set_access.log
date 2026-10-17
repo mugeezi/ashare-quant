@@ -13,3 +13,8 @@
 2026-10-13 22:27:18 -0700	integrity	download_events.py yjyg	下载业绩预告时按报告期请求到 2024Q1，接口返回中含 2024 年公告日的记录，保存前已全部丢弃	业绩预告公告元数据（未保存、未计算任何统计）
 2026-10-14 01:20:38 -0700	integrity	download_events.py	下载股东户数时接口返回 5199 条 2024 年以后公告的记录，保存前丢弃	股东户数元数据（未保存、未计算统计）
 2026-10-14 21:01:45 -0700	integrity	download_events.py	下载业绩报表时接口返回 12894 条 2024 年以后公告的记录，保存前丢弃	业绩报表元数据（未保存、未计算统计）
+2026-10-17 02:12:06 -0700	integrity	final_index_check.py	最终测试运行前检查 4.3-1：基准指数完整性检查（只列异常日期，不计算收益统计）	data/index gz2000 等 2024-01-01 ~ 2026-10-13
+2026-10-17 02:30:19 -0700	final_test	final_test_data.py	最终测试数据准备：下载测试期外部事件数据	yjyg, buyback, zengchi, gdhs, lhb, dzjy, fin, margin；2024-01-01 ~ 2026-10-13
+2026-10-17 03:17:16 -0700	integrity	download_events.py	下载股东户数时接口返回 121 条 2024 年以后公告的记录，保存前丢弃	股东户数元数据（未保存、未计算统计）
+2026-10-17 03:28:25 -0700	integrity	download_events.py	下载业绩报表时接口返回 45 条 2024 年以后公告的记录，保存前丢弃	业绩报表元数据（未保存、未计算统计）
+2026-10-17 06:05:59 -0700	final_test	data.py	最终测试：加载全期行情	panel 全部年份; 列 ['date', 'code', 'open', 'high', 'low', 'close', 'preclose', 'amount', 'volume', 'turn', 'adj_factor', 'limit_pct', 'up_limit', 'down_limit', 'tradestatus', 'isST', 'isS', 'no_limit', 'delist_period', 'exright_day', 'days_listed']
