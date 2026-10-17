@@ -18,6 +18,7 @@ import math
 import pickle
 import subprocess
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -157,6 +158,15 @@ def combo_score(wd, comps):
 
 def evaluate(dry, cutoff):
     wd = workdir(dry)
+    need = sorted({c for h in STRATS for c in COMPONENTS[h]})
+    miss = [c for c in need if not (wd / f"score_{c}.npy").exists()]
+    if miss:
+        raise SystemExit(f"打分未全部完成，缺 {miss}；eval 必须在全部打分完成后一次性运行")
+    if not dry:                                                # eval 只允许运行一次（FINAL_TEST_PLAN.md 4.2）
+        mark = wd / "EVAL_STARTED"
+        if mark.exists() or (ROOT / "reports" / "FINAL_TEST_RESULT.json").exists():
+            raise SystemExit("eval 已运行过，测试视为已完成，不得再次运行")
+        mark.write_text(time.strftime("%Y-%m-%d %H:%M:%S") + f" cutoff={cutoff} commit={git('rev-parse', 'HEAD')}\n")
     md = pickle.load(open(wd / "md.pkl", "rb"))
     from framework import add_derived
     md = add_derived(md)
@@ -204,9 +214,40 @@ def evaluate(dry, cutoff):
     if dry:
         print("eval 演练完成：", {h: (v["买入笔数"], v["起"], v["止"]) for h, v in res_all.items()}, flush=True)
         return
-    (ROOT / "reports" / "FINAL_TEST_RESULT.json").write_text(json.dumps(res_all, ensure_ascii=False, indent=1, default=str))
+    meta = dict(截止日=cutoff, 实际最后交易日=res_all[MAIN]["止"], forward_start=git("rev-parse", "forward-start^{commit}"),
+                运行时间=time.strftime("%Y-%m-%d %H:%M:%S"), 主策略=MAIN, 第二策略=SECOND, 对照=CONTROL, 通过标准=CRITERIA)
+    (ROOT / "reports" / "FINAL_TEST_RESULT.json").write_text(json.dumps(dict(meta=meta, results=res_all), ensure_ascii=False,
+                                                                          indent=1, default=str))
+    write_md(meta, res_all)
     verdict = "通过" if res_all[MAIN]["通过"] else "未通过"
     print(f"主策略 {MAIN}：{verdict}", flush=True)
+
+
+def write_md(meta, res):
+    f = lambda x: f"{x:+.2%}" if isinstance(x, (int, float)) and x == x else str(x)  # noqa: E731
+    m = res[MAIN]
+    checks = [("扣费后相对中证全指年化超额 ≥ 5%", f(m["年化超额"]), m["年化超额"] >= CRITERIA["excess"]),
+              ("年化信息比率 ≥ 0.5", f"{m['信息比率']:.2f}", m["信息比率"] >= CRITERIA["ir"]),
+              ("最大回撤 ≤ 35%", f"{m['最大回撤']:.2%}", m["最大回撤"] >= CRITERIA["max_dd"]),
+              ("2024/2025/2026 至少两个年度超额为正", "、".join(f"{y} {f(v)}" for y, v in m["分年超额"].items()), m["正超额年数"] >= CRITERIA["years_pos"]),
+              ("SMB 回归 α 占比 ≥ 0.5", f"{m['SMB_α占比']:.2f}", m["SMB_α占比"] >= CRITERIA["alpha_share"]),
+              ("国证 2000 − 中证全指 回归 α 占比 ≥ 0.5", f"{m['国证2000差_α占比']:.2f}", m["国证2000差_α占比"] >= CRITERIA["alpha_share"])]
+    L = ["# 最终测试结果", "",
+         f"测试区间：2024-01-01 至 {meta['截止日']}（实际最后交易日 {meta['实际最后交易日']}）。代码：forward-start = `{meta['forward_start']}`。运行时间 {meta['运行时间']}。", "",
+         f"## 判定：主策略 {MAIN} **{'通过' if m['通过'] else '未通过'}**", "",
+         "| 通过标准（主策略） | 结果 | 是否满足 |", "|---|---|---|"]
+    L += [f"| {a} | {b} | {'是' if c else '否'} |" for a, b, c in checks]
+    L += ["", "决策规则（事先固定）：" + ("通过 → 先做至少 3 个月前向模拟盘，之后由用户决定是否实盘。" if m["通过"] else
+                                    "未通过 → 这条研究线到此为止，不修改策略重测，不再使用测试集。第二策略结果只作参考，不得替换主策略。"), "",
+          "## 全部策略", "",
+          "| 策略 | 角色 | 年化 | 年化超额 | 信息比率 | 最大回撤 | 分年超额 | SMB α 占比 | 国证2000差 α 占比 | 剔除前 1% 交易后超额 | 买入笔数 | 五项 |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    role = {MAIN: "主策略", SECOND: "第二策略（参考）", CONTROL: "对照（参考）"}
+    for h, v in res.items():
+        L.append(f"| {h} | {role[h]} | {f(v['年化'])} | {f(v['年化超额'])} | {v['信息比率']:.2f} | {v['最大回撤']:.2%} | "
+                 + "、".join(f"{y} {f(x)}" for y, x in v["分年超额"].items())
+                 + f" | {v['SMB_α占比']:.2f} | {v['国证2000差_α占比']:.2f} | {f(v['剔除前1pct交易后超额'])}（{v['剔除笔数']} 笔） | {v['买入笔数']} | {'满足' if v['通过'] else '不满足'} |")
+    (ROOT / "reports" / "FINAL_TEST_RESULT.md").write_text("\n".join(L) + "\n")
 
 
 if __name__ == "__main__":

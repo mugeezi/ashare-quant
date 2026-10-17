@@ -50,6 +50,9 @@ def lhb():
     df["avail_date"] = df["date"]
     df = df[["date", "avail_date", "code6", "n_buy_inst", "n_sell_inst", "inst_buy", "inst_sell", "inst_net", "amount",
              "net_ratio_pct", "reason"]].drop_duplicates()
+    # 只保留当日统计字段：接口若带"上榜后 N 日涨幅"之类的未来数据列，上面的列选择已丢弃；这里断言保存的数据中不存在
+    bad = [c for c in df.columns if any(k in str(c) for k in ("上榜后", "后1日", "后2日", "后5日", "后10日", "涨跌幅"))]
+    assert not bad, f"龙虎榜数据含未来数据列：{bad}"
     save_df(df, OUT / "lhb_jg.parquet")
     log_download("events/lhb_jg", "东方财富 龙虎榜机构买卖每日统计（AKShare stock_lhb_jgmmtj_em）", f"{START}~{END}",
                  len(df), t0, note="只保留当日统计字段；不下载含'上榜后N日'未来收益的明细接口")
