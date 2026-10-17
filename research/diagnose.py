@@ -138,5 +138,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "nf":
         main(["H67_nf", "H68_nf", "H60s_nf", "H73_nf", "X08_H60s_nf/vk3", "X08_H71_nf/vk3", "X08_H53_nf/zb",
               "X12_H68_nf/dip1zb", "X12_H67s_nf/dip1zb"], tag="_nf")
+    elif len(sys.argv) > 1 and sys.argv[1] == "pool":            # 最终测试候选池：9 个 _nf 版本 + E01
+        main(["H67_nf", "H68_nf", "H60s_nf", "H73_nf", "X08_H60s_nf/vk3", "X08_H71_nf/vk3", "X08_H53_nf/zb",
+              "X12_H68_nf/dip1zb", "X12_H67s_nf/dip1zb", "E01"], tag="_pool")
     else:
         main()

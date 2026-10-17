@@ -21,6 +21,10 @@ EM_DC = "https://datacenter-web.eastmoney.com/api/data/v1/get"
 
 OUT = DATA / "events"
 START, END = "2013-06-01", "2023-12-31"
+# 以下三个参数只在最终测试数据准备时被 final_test_data.py 改写；研究期取值与原来硬编码的日期相同
+PERIOD_FIRST = "2013-06-30"      # 业绩预告、股东户数的第一个报告期 / 截止日
+FIN_FIRST = "2012-12-31"         # 业绩报表（只用公告日）的第一个报告期
+NOTICE_MIN = None                # 公告日下限（研究期不设）
 
 
 def months():
@@ -202,7 +206,7 @@ def yjyg():
     import akshare as ak
     t0 = time.time()
     parts = []
-    for p in pd.date_range("2013-06-30", "2024-03-31", freq="QE"):
+    for p in pd.date_range(PERIOD_FIRST, pd.Timestamp(END) + pd.offsets.QuarterEnd(1), freq="QE"):
         df = retry(lambda: ak.stock_yjyg_em(date=p.strftime("%Y%m%d")))
         if df is not None and len(df):
             df["report_period"] = p
@@ -215,6 +219,8 @@ def yjyg():
     df["notice_date"] = pd.to_datetime(df["notice_date"], errors="coerce")
     df["avail_date"] = df["notice_date"]
     df = df[df["avail_date"] <= END]                    # 研究期以内（测试期公告不下载使用）
+    if NOTICE_MIN:
+        df = df[df["avail_date"] >= NOTICE_MIN]
     df = df.drop(columns=[c for c in df.columns if c in ("序号",)])
     save_df(df, OUT / "yjyg.parquet")
     log_download("events/yjyg", "东方财富 业绩预告（AKShare stock_yjyg_em）", "报告期 2013Q2~2024Q1，公告日 ≤ 2023-12-31",
@@ -229,7 +235,7 @@ def gdhs():
     from common import log_test_access
     t0 = time.time()
     parts = []
-    for p in pd.date_range("2013-06-30", "2023-12-31", freq="QE"):
+    for p in pd.date_range(PERIOD_FIRST, END, freq="QE"):
         df = retry(lambda: ak.stock_zh_a_gdhs(symbol=p.strftime("%Y%m%d")))
         if df is None or not len(df):
             continue
@@ -246,6 +252,8 @@ def gdhs():
     df["notice_date"] = pd.to_datetime(df["notice_date"], errors="coerce")
     n_test = int((df["notice_date"] > END).sum())
     df = df[df["notice_date"] <= END].copy()
+    if NOTICE_MIN:
+        df = df[df["notice_date"] >= NOTICE_MIN].copy()
     df["code6"] = df["code6"].astype(str).str.zfill(6)
     df["avail_date"] = df["notice_date"].dt.normalize()
     save_df(df, OUT / "gdhs.parquet")
@@ -331,7 +339,7 @@ def fin():
     cols = ("SECURITY_CODE,REPORTDATE,NOTICE_DATE,UPDATE_DATE,BASIC_EPS,TOTAL_OPERATE_INCOME,PARENT_NETPROFIT,"
             "WEIGHTAVG_ROE,YSTZ,SJLTZ,BPS,MGJYXJJE,XSMLL,YSHZ,SJLHZ")
     parts = []
-    for p in pd.date_range("2012-12-31", "2023-12-31", freq="QE"):
+    for p in pd.date_range(FIN_FIRST, END, freq="QE"):
         rows = em_report("RPT_LICO_FN_CPD", f"(REPORTDATE='{p.date()}')", sort="SECURITY_CODE", columns=cols)
         parts.append(pd.DataFrame(rows))
         print("fin", p.date(), len(rows), flush=True)
@@ -342,6 +350,8 @@ def fin():
         df[c] = pd.to_datetime(df[c], errors="coerce")
     n_test = int((df["notice_date"] > END).sum())
     df = df[df["notice_date"] <= END].copy()
+    if NOTICE_MIN:
+        df = df[df["notice_date"] >= NOTICE_MIN].copy()
     df["avail_date"] = df["notice_date"].dt.normalize()
     save_df(df, OUT / "fin.parquet")
     log_download("events/fin", "东方财富 业绩报表 RPT_LICO_FN_CPD（按报告期）", "报告期 2012Q4~2023Q4", len(df), t0,

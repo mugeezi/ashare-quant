@@ -102,6 +102,8 @@ SPECS = {
 for _h in ("H67", "H67s", "H68", "H60", "H60s", "H53", "H71"):
     SPECS[(f"{_h}_nf", "base")] = dict(SPECS[(_h, "base")], nofin=True)
 SPECS[("H73_nf", "base")] = dict(SPECS[("H73", "base")], combo=["H60_nf", "H53_nf"], nofin=True)
+# 最终测试对照（2026-10-17）：H42 去掉业绩报表数值特征，只在最终测试中作为参考运行，不参与判定
+SPECS[("H42_nf", "base")] = dict(SPECS[("H42", "base")], nofin=True)
 # 冻结后探索（2026-10-16 用户要求继续尝试）：只用训练集，不上验证集，全部不含业绩报表数值特征
 _B = dict(H=20, use_events=True, hold=10, plus="margin", regime=True, nofin=True)
 SPECS[("E01", "base")] = dict(_B, emo=True, cal=True)
