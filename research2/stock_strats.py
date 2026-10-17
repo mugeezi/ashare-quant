@@ -44,7 +44,7 @@ def w03_factory(split: str):
     sc = cached("H73_nf", split)
 
     def f(md, ext=None):
-        s = np.where(size_mask(md, 0.20), sc, np.nan)
+        s = np.where(size_mask(md, 0.20), sc[:md.T], np.nan)   # 前视检测时行情被截短
         return ml.RegimeStrategy(s, n_full=20, n_low=10)
     return f
 
